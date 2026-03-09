@@ -30,6 +30,7 @@
   (:require [com.stuartsierra.component :as component]
             [openadr3.api :as api]
             [openadr3.entities :as entities]
+            [openadr3.mqtt :as mqtt]
             [clojure.tools.logging :as log]))
 
 ;; ---------------------------------------------------------------------------
@@ -265,3 +266,97 @@
 (defn scopes           [c]   (api/scopes (martian c)))
 (defn endpoint-scopes  [c ep] (api/endpoint-scopes (martian c) ep))
 (defn authorized?      [c ep] (api/authorized? (scopes c) (endpoint-scopes c ep)))
+
+;; ---------------------------------------------------------------------------
+;; MQTT notifications
+;; ---------------------------------------------------------------------------
+
+(defn connect-mqtt!
+  "Connect to an MQTT broker. Stores the connection in the client's state.
+  Returns the client for threading.
+
+  Options:
+    :client-id  — MQTT client ID (default: auto-generated)
+    :on-message — optional callback (fn [topic metadata payload])"
+  ([client broker-url]
+   (connect-mqtt! client broker-url {}))
+  ([client broker-url opts]
+   (let [conn (mqtt/connect! broker-url opts)]
+     (swap! (:state client) assoc :mqtt conn)
+     client)))
+
+(defn mqtt-conn
+  "Returns the MQTT connection from the client's state, or nil."
+  [client]
+  (:mqtt @(:state client)))
+
+(defn- require-mqtt
+  "Returns the MQTT connection or throws."
+  [client]
+  (or (mqtt-conn client)
+      (throw (ex-info "MQTT not connected. Call connect-mqtt! first."
+                      {:client-type (:client-type client)}))))
+
+(defn- extract-topics
+  "Extract topic strings from a VTN MQTT topics response.
+  Returns a vector of topic strings."
+  [resp]
+  (when (<= (:status resp) 299)
+    (vals (:topics (:body resp)))))
+
+(defn subscribe-mqtt!
+  "Subscribe to MQTT topics. Topics can be a vector of topic strings.
+  Returns the client for threading."
+  [client topics]
+  (mqtt/subscribe! (require-mqtt client) topics)
+  client)
+
+(defn subscribe-notifications!
+  "Query the VTN for MQTT notification topics and subscribe to them.
+  topic-fn is a function that takes the client and returns a response,
+  e.g. #(get-mqtt-topics-programs %).
+  Returns the client for threading."
+  [client topic-fn]
+  (let [resp   (topic-fn client)
+        topics (extract-topics resp)]
+    (when topics
+      (subscribe-mqtt! client topics))
+    client))
+
+(defn mqtt-messages
+  "Returns all MQTT messages received by this client."
+  [client]
+  (mqtt/messages (require-mqtt client)))
+
+(defn mqtt-messages-on-topic
+  "Returns MQTT messages received on a specific topic."
+  [client topic]
+  (mqtt/messages-on-topic (require-mqtt client) topic))
+
+(defn await-mqtt-messages
+  "Wait for at least n MQTT messages, or timeout (default 5000ms)."
+  ([client n]
+   (mqtt/await-messages (require-mqtt client) n))
+  ([client n timeout-ms]
+   (mqtt/await-messages (require-mqtt client) n timeout-ms)))
+
+(defn await-mqtt-messages-on-topic
+  "Wait for at least n messages on a specific topic, or timeout."
+  ([client topic n]
+   (mqtt/await-messages-on-topic (require-mqtt client) topic n))
+  ([client topic n timeout-ms]
+   (mqtt/await-messages-on-topic (require-mqtt client) topic n timeout-ms)))
+
+(defn clear-mqtt-messages!
+  "Clear collected MQTT messages."
+  [client]
+  (mqtt/clear-messages! (require-mqtt client))
+  client)
+
+(defn disconnect-mqtt!
+  "Disconnect from the MQTT broker."
+  [client]
+  (when-let [conn (mqtt-conn client)]
+    (mqtt/disconnect! conn)
+    (swap! (:state client) dissoc :mqtt))
+  client)
