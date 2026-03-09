@@ -37,8 +37,27 @@
       (catch Exception _
         s))))
 
+(defn- normalize-broker-uri
+  "Paho MQTT client requires tcp:// and ssl:// URI schemes. Translate from
+  the standard MQTT schemes (mqtt://, mqtts://) and add default ports when
+  the URI omits them (1883 for plain, 8883 for TLS)."
+  [uri]
+  (let [u    (java.net.URI. uri)
+        host (.getHost u)
+        port (.getPort u)]
+    (case (.getScheme u)
+      "mqtt"  (str "tcp://" host ":" (if (pos? port) port 1883))
+      "mqtts" (str "ssl://" host ":" (if (pos? port) port 8883))
+      "tcp"   (str "tcp://" host ":" (if (pos? port) port 1883))
+      "ssl"   (str "ssl://" host ":" (if (pos? port) port 8883))
+      uri)))
+
 (defn connect!
   "Connect to an MQTT broker. Returns a map with :client and :messages atom.
+
+  The broker-url may use standard mqtt:// or mqtts:// schemes; these are
+  translated to tcp:// and ssl:// internally for Paho compatibility.
+  Default ports (1883/8883) are added when the URI omits them.
 
   Options:
     :client-id  — MQTT client ID (default: auto-generated)
@@ -47,8 +66,9 @@
   ([broker-url]
    (connect! broker-url {}))
   ([broker-url {:keys [client-id on-message]}]
-   (let [messages (atom [])
-         client   (mh/connect broker-url
+   (let [paho-url (normalize-broker-uri broker-url)
+         messages (atom [])
+         client   (mh/connect paho-url
                               (cond-> {}
                                 client-id (assoc :client-id client-id)))]
      (log/info "MQTT connected" {:broker broker-url :client-id client-id})
