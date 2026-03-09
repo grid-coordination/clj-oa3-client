@@ -191,6 +191,7 @@
 (defn delete-event     [c id] (api/delete-event (martian c) id))
 
 (defn get-vens         [c]   (api/get-vens (martian c)))
+(defn search-vens      [c q] (api/search-vens (martian c) q))
 (defn get-ven-by-id    [c id] (api/get-ven-by-id (martian c) id))
 (defn create-ven       [c body] (api/create-ven (martian c) body))
 (defn update-ven       [c id body] (api/update-ven (martian c) id body))
