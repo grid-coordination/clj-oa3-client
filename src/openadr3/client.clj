@@ -200,7 +200,7 @@
 
 (defn search-ven-resources [c q] (api/search-ven-resources (martian c) q))
 (defn get-resource-by-id [c id] (api/get-resource-by-id (martian c) id))
-(defn create-resource  [c ven-id name] (api/create-resource (martian c) ven-id name))
+(defn create-resource  [c body] (api/create-resource (martian c) body))
 (defn update-resource  [c id body] (api/update-resource (martian c) id body))
 (defn delete-resource  [c id] (api/delete-resource (martian c) id))
 
