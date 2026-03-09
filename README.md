@@ -231,7 +231,7 @@ The `dev/user.clj` namespace provides a system atom with convenience functions:
 | Repo | Description |
 |------|-------------|
 | [clj-oa3](https://github.com/grid-coordination/clj-oa3) | Pure client library (dependency) |
-| [clj-oa3-test](https://github.com/grid-coordination/clj-oa3-test) | Integration tests against VTN-RI |
+| [clj-oa3-test](https://github.com/grid-coordination/clj-oa3-test) | OpenADR 3 integration tests |
 
 ## License
 
