@@ -33,7 +33,7 @@ Wraps the `openadr3.api` library with [Stuart Sierra's Component](https://github
 │                                              │
 │  Delegates to openadr3.api via :martian key  │
 ├──────────────────────────────────────────────┤
-│  clj-oa3 (openadr3.api + openadr3.entities) │
+│  clj-oa3 (openadr3.api + openadr3.entities)  │
 │  Martian + Hato + OpenAPI spec               │
 └──────────────────────────────────────────────┘
 ```
