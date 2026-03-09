@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# Run the OpenADR3 test-callback-service
+
+git checkout ${VTN_CBS_BRANCH}
+
+source ./venv/bin/activate
+
+python run.py

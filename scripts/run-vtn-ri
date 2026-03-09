@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# Run the OpenADR3 VTN-RI
+
+git checkout ${VTN_RI_BRANCH}
+
+source ./venv/bin/activate
+
+python -m swagger_server
