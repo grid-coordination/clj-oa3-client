@@ -14,9 +14,16 @@
                                    :token \"my-token\"})
                component/start))
 
+    ;; Register the VEN (stores ven-id in the client's state atom)
+    (client/register! c \"my-ven\")
+
     ;; Use it — all openadr3.api functions work via the :martian key
     (client/get-programs c)
     (client/programs c)       ;; coerced entities
+
+    ;; VEN-scoped calls default to own ven-id when registered
+    (client/get-mqtt-topics-ven c)  ;; uses own ven-id
+    (client/ven-id c)               ;; => \"abc-123\"
 
     ;; Stop when done
     (component/stop c)"
@@ -66,6 +73,8 @@
                       spec-version  ; e.g. "3.1.0"
                       ;; runtime (set on start)
                       martian       ; the Martian client instance
+                      ;; mutable runtime state (atom, created at construction)
+                      state         ; atom — populated by register!, etc.
                       ]
   component/Lifecycle
 
@@ -105,7 +114,8 @@
   (map->OA3Client {:client-type  type
                    :url          url
                    :token        token
-                   :spec-version (or spec-version default-spec-version)}))
+                   :spec-version (or spec-version default-spec-version)
+                   :state        (atom {})}))
 
 ;; ---------------------------------------------------------------------------
 ;; Convenience accessors — delegate to openadr3.api using :martian
@@ -117,6 +127,50 @@
   (or (:martian client)
       (throw (ex-info "OA3Client not started. Call component/start first."
                       {:client-type (:client-type client)}))))
+
+;; ---------------------------------------------------------------------------
+;; VEN registration — mutable state via :state atom
+;; ---------------------------------------------------------------------------
+
+(defn ven-id
+  "Returns this client's registered VEN ID, or nil if not registered."
+  [client]
+  (:ven-id @(:state client)))
+
+(defn ven-name
+  "Returns this client's registered VEN name, or nil if not registered."
+  [client]
+  (:ven-name @(:state client)))
+
+(defn- require-ven-id
+  "Returns the client's ven-id or throws if not registered."
+  [client]
+  (or (ven-id client)
+      (throw (ex-info "VEN not registered. Call register! first."
+                      {:client-type (:client-type client)}))))
+
+(defn register!
+  "Register this VEN with the VTN. Idempotent — finds existing VEN by name
+  or creates a new one. Stores the ven-id in the client's state.
+  Returns the client for threading."
+  [client ven-name]
+  (let [m       (martian client)
+        existing (api/find-ven-by-name m ven-name)
+        vid     (if existing
+                  (do (log/info "VEN found, reusing registration"
+                                {:ven-name ven-name :ven-id (:id existing)})
+                      (:id existing))
+                  (let [resp (api/create-ven m {:objectType "VEN_VEN_REQUEST"
+                                                :venName ven-name})
+                        id   (-> resp :body :id)]
+                    (when-not id
+                      (throw (ex-info "VEN registration failed"
+                                      {:ven-name ven-name :status (:status resp)
+                                       :body (:body resp)})))
+                    (log/info "VEN registered" {:ven-name ven-name :ven-id id})
+                    id))]
+    (swap! (:state client) assoc :ven-id vid :ven-name ven-name)
+    client))
 
 ;; Raw API access (returns HTTP responses)
 
@@ -170,10 +224,18 @@
 (defn get-mqtt-topics-programs [c] (api/get-mqtt-topics-programs (martian c)))
 (defn get-mqtt-topics-program [c id] (api/get-mqtt-topics-program (martian c) id))
 (defn get-mqtt-topics-program-events [c id] (api/get-mqtt-topics-program-events (martian c) id))
-(defn get-mqtt-topics-ven [c id] (api/get-mqtt-topics-ven (martian c) id))
-(defn get-mqtt-topics-ven-programs [c id] (api/get-mqtt-topics-ven-programs (martian c) id))
-(defn get-mqtt-topics-ven-events [c id] (api/get-mqtt-topics-ven-events (martian c) id))
-(defn get-mqtt-topics-ven-resources [c id] (api/get-mqtt-topics-ven-resources (martian c) id))
+(defn get-mqtt-topics-ven
+  ([c]    (api/get-mqtt-topics-ven (martian c) (require-ven-id c)))
+  ([c id] (api/get-mqtt-topics-ven (martian c) id)))
+(defn get-mqtt-topics-ven-programs
+  ([c]    (api/get-mqtt-topics-ven-programs (martian c) (require-ven-id c)))
+  ([c id] (api/get-mqtt-topics-ven-programs (martian c) id)))
+(defn get-mqtt-topics-ven-events
+  ([c]    (api/get-mqtt-topics-ven-events (martian c) (require-ven-id c)))
+  ([c id] (api/get-mqtt-topics-ven-events (martian c) id)))
+(defn get-mqtt-topics-ven-resources
+  ([c]    (api/get-mqtt-topics-ven-resources (martian c) (require-ven-id c)))
+  ([c id] (api/get-mqtt-topics-ven-resources (martian c) id)))
 (defn get-mqtt-topics-events [c] (api/get-mqtt-topics-events (martian c)))
 (defn get-mqtt-topics-reports [c] (api/get-mqtt-topics-reports (martian c)))
 (defn get-mqtt-topics-subscriptions [c] (api/get-mqtt-topics-subscriptions (martian c)))
