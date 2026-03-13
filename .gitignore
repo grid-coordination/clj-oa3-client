@@ -25,9 +25,3 @@
 log/*
 !log/.gitkeep
 .clojure-mcp/
-
-# Shadow repo symlinks (Claude Code + beads)
-.beads
-.claude
-CLAUDE.md
-AGENTS.md
