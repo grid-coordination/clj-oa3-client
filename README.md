@@ -8,12 +8,12 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 
 - **Separate VEN/BL clients** — purpose-built components with role-specific capabilities
 - **NotificationChannel protocol** — unified interface for MQTT and webhook notifications
-- **Component lifecycle** — start/stop clients cleanly, auto-stop channels on shutdown
+- **mDNS discovery** — discover VTNs on the local network via `_openadr._tcp` service type
+- **Component lifecycle** — clients, channels, and discoverer all implement `component/Lifecycle`
 - **Config-driven construction** — specify URL, token (or OAuth2 credentials), and spec version
 - **Automatic spec resolution** — just say `"3.1.0"` and the correct OpenAPI spec is found on the classpath
 - **Full API delegation** — all `openadr3.api` functions available through the client
 - **Both raw and coerced access** — HTTP responses or namespaced Clojure entities with `:openadr/raw` metadata
-- **Backward compatible** — existing code using `openadr3.client/oa3-client` continues to work
 
 ## Architecture
 
@@ -34,11 +34,12 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 │    • Channel mgmt          • Full API            │
 │    • Program caching                             │
 │    • Notifier discovery                          │
+│    • mDNS VTN discovery                          │
 ├──────────────────────────────────────────────────┤
-│  openadr3.channel                                │
-│    NotificationChannel protocol                  │
-│    MqttChannel ─── openadr3.mqtt                 │
-│    WebhookChannel ── openadr3.webhook            │
+│  openadr3.channel          openadr3.discovery     │
+│    NotificationChannel       MdnsDiscoverer       │
+│    MqttChannel (Component)   Component wrapping   │
+│    WebhookChannel (Comp.)    clj-mdns             │
 ├──────────────────────────────────────────────────┤
 │  openadr3.client.base                            │
 │    Spec resolution, token fetch, API delegation  │
@@ -51,6 +52,7 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 ## Prerequisites
 
 - [clj-oa3](../clj-oa3) must be checked out as a sibling directory (referenced via `:local/root`)
+- [clj-mdns](../clj-mdns) must be checked out as a sibling directory (referenced via `:local/root`)
 - The OpenADR 3 specification must be on the classpath (handled automatically via clj-oa3's `resources/` symlink)
 
 ## Quick Start
@@ -155,21 +157,19 @@ The `NotificationChannel` protocol provides a unified interface for MQTT and web
 (ch/await-channel-messages wh-ch 1 10000)
 ```
 
-### Channel Protocol Directly
+### Channels as Components
 
-Channels can also be used standalone without a VenClient:
+Channels implement both `NotificationChannel` and `component/Lifecycle`, so they
+work standalone in a component system or managed by VenClient:
 
 ```clojure
-(require '[openadr3.channel :as ch])
-
-;; Create → start → subscribe → use → stop
-(def mqtt (-> (ch/mqtt-channel "tcp://broker:1883" {:on-message my-handler})
-              ch/channel-start))
+;; As Components (component/start delegates to channel-start)
+(def mqtt (component/start (ch/mqtt-channel "tcp://broker:1883")))
 (ch/subscribe-topics mqtt ["programs/+" "events/+"])
 (ch/channel-messages mqtt)
-(ch/channel-stop mqtt)
+(component/stop mqtt)
 
-;; Webhook channel
+;; Or via the protocol directly
 (def wh (-> (ch/webhook-channel {:port 0 :callback-host "192.168.1.50"})
             ch/channel-start))
 (ch/callback-url wh)
@@ -221,6 +221,48 @@ These auto-use the registered VEN ID when called with one argument:
 (ven/get-mqtt-topics-ven-resources my-ven)
 ```
 
+## mDNS Discovery
+
+The `MdnsDiscoverer` component discovers VTNs on the local network via mDNS
+(service type `_openadr._tcp`). It implements `component/Lifecycle`.
+
+### Standalone Discovery
+
+```clojure
+(require '[openadr3.discovery :as disc])
+
+(def d (component/start (disc/mdns-discoverer)))
+(disc/discover-vtns d)           ;; sync query, blocks 5s
+(disc/discovered-services d)     ;; async — services trickle in
+(disc/vtn-urls d)                ;; extract URLs from discovered services
+(component/stop d)
+```
+
+### Wired into VenClient
+
+When a VenClient has no `:url`, it resolves one from the injected discoverer on start:
+
+```clojure
+(def system
+  (component/start-system
+    {:discovery (disc/mdns-discoverer)
+     :ven (component/using
+            (ven/ven-client {:token "ven_token"})  ;; no URL needed
+            [:discovery])}))
+
+;; VenClient resolved URL from mDNS
+(:url (:ven system))  ;=> "http://192.168.1.10:8080/openadr3/3.1.0"
+
+(component/stop-system system)
+```
+
+### Options
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `:service-type` | string | `"_openadr._tcp.local."` | mDNS service type to discover |
+| `:bind-address` | InetAddress | auto-detected LAN IP | Network interface to bind JmDNS to |
+
 ## Multiple Clients
 
 Use `component/start-system` to manage multiple clients as a system:
@@ -246,7 +288,7 @@ Use `component/start-system` to manage multiple clients as a system:
 
 | Key | Type | Required | Default | Description |
 |-----|------|----------|---------|-------------|
-| `:url` | string | yes | — | VTN base URL (e.g. `"http://localhost:8080/openadr3/3.1.0"`) |
+| `:url` | string | yes* | — | VTN base URL (omit when using mDNS discovery) |
 | `:token` | string | one of | — | Bearer auth token |
 | `:client-id` | string | one of | — | OAuth2 client ID (used with `:client-secret`) |
 | `:client-secret` | string | one of | — | OAuth2 client secret (used with `:client-id`) |
@@ -324,10 +366,11 @@ All `openadr3.api` functions are available through `openadr3.client.base` (and r
 | `openadr3.client.ven` | VenClient component, registration, channels, VEN operations |
 | `openadr3.client.bl` | BlClient component |
 | `openadr3.client.base` | Shared: spec resolution, token fetch, API delegation |
-| `openadr3.channel` | NotificationChannel protocol, MqttChannel, WebhookChannel |
+| `openadr3.channel` | NotificationChannel protocol, MqttChannel, WebhookChannel (all Components) |
+| `openadr3.discovery` | MdnsDiscoverer Component for VTN discovery via mDNS |
 | `openadr3.mqtt` | Low-level MQTT broker connection and subscription |
 | `openadr3.webhook` | Low-level webhook HTTP server |
-| `openadr3.net` | Network utilities (LAN IP detection) |
+| `openadr3.net` | Network utilities (LAN IP detection, interface enumeration) |
 
 ## Component Lifecycle
 
@@ -375,6 +418,7 @@ The `dev/user.clj` namespace provides a system atom with convenience functions:
 | Library | Purpose |
 |---------|---------|
 | [clj-oa3](../clj-oa3) | Pure OpenADR 3 client library (local dependency) |
+| [clj-mdns](../clj-mdns) | mDNS service discovery (local dependency) |
 | [Component](https://github.com/stuartsierra/component) | Lifecycle management |
 | [machine_head](https://github.com/clojurewerkz/machine_head) | MQTT client (Paho wrapper) |
 | [hato](https://github.com/gnarroway/hato) | HTTP client (OAuth2 token fetch) |
@@ -385,6 +429,7 @@ The `dev/user.clj` namespace provides a system atom with convenience functions:
 | Repo | Description |
 |------|-------------|
 | [clj-oa3](https://github.com/grid-coordination/clj-oa3) | Pure client library (dependency) |
+| [clj-mdns](https://github.com/grid-coordination/clj-mdns) | mDNS discovery library (dependency) |
 | [clj-oa3-test](https://github.com/grid-coordination/clj-oa3-test) | OpenADR 3 integration tests |
 
 ## License
