@@ -1,6 +1,9 @@
 (ns user
   (:require [com.stuartsierra.component :as component]
-            [openadr3.client :as client]
+            [openadr3.client.base :as base]
+            [openadr3.client.ven :as ven]
+            [openadr3.client.bl :as bl]
+            [openadr3.channel :as ch]
             [openadr3.entities :as entities]))
 
 (def vtn-url "http://localhost:8080/openadr3/3.1.0")
@@ -17,8 +20,8 @@
   ([{:keys [url] :or {url vtn-url}}]
    (reset! system
            (component/start-system
-            {:ven (client/oa3-client {:type :ven :url url :token "ven_token"})
-             :bl  (client/oa3-client {:type :bl  :url url :token "bl_token"})}))
+            {:ven (ven/ven-client {:url url :token "ven_token"})
+             :bl  (bl/bl-client   {:url url :token "bl_token"})}))
    (println "System started. Clients: :ven, :bl")))
 
 (defn stop! []
@@ -41,39 +44,90 @@
   (start! {:url "https://my-vtn.example.com/openadr3/3.1.0"})
 
   ;; -------------------------------------------------------------------------
-  ;; Raw API
+  ;; Raw API (via base)
   ;; -------------------------------------------------------------------------
-  (client/get-programs (bl))
-  (client/get-events (ven))
-  (client/get-vens (bl))
+  (base/get-programs (bl))
+  (base/get-events (ven))
+  (base/get-vens (bl))
 
   ;; -------------------------------------------------------------------------
   ;; Coerced entities
   ;; -------------------------------------------------------------------------
-  (client/programs (bl))
-  (client/events (ven))
-  (client/vens (bl))
+  (base/programs (bl))
+  (base/events (ven))
+  (base/vens (bl))
 
   ;; Single entity by ID
-  (client/program (bl) "some-id")
+  (base/program (bl) "some-id")
 
   ;; Access raw data
-  (-> (first (client/programs (bl))) meta :openadr/raw)
+  (-> (first (base/programs (bl))) meta :openadr/raw)
 
   ;; -------------------------------------------------------------------------
   ;; Introspection
   ;; -------------------------------------------------------------------------
-  (sort (client/all-routes (ven)))
-  (client/client-type (ven))   ;=> :ven
-  (client/scopes (ven))
-  (client/authorized? (ven) :search-all-events)
+  (sort (base/all-routes (ven)))
+  (base/client-type (ven))   ;=> :ven
+  (base/scopes (ven))
+  (base/authorized? (ven) :search-all-events)
+
+  ;; -------------------------------------------------------------------------
+  ;; VEN registration
+  ;; -------------------------------------------------------------------------
+  (ven/register! (ven) "my-ven")
+  (ven/ven-id (ven))        ;=> "abc-123"
+  (ven/ven-name (ven))      ;=> "my-ven"
+
+  ;; -------------------------------------------------------------------------
+  ;; Program resolution (cached)
+  ;; -------------------------------------------------------------------------
+  (ven/resolve-program-id (ven) "Program1")  ;=> "42" (API call first time)
+  (ven/resolve-program-id (ven) "Program1")  ;=> "42" (cache hit)
+
+  ;; -------------------------------------------------------------------------
+  ;; Notifier discovery
+  ;; -------------------------------------------------------------------------
+  (ven/discover-notifiers (ven))
+  (ven/vtn-supports-mqtt? (ven))
+  (ven/mqtt-broker-urls (ven))
+
+  ;; -------------------------------------------------------------------------
+  ;; MQTT via VenClient channel management
+  ;; -------------------------------------------------------------------------
+  (ven/add-mqtt (ven) "tcp://localhost:1883")
+  (ven/subscribe (ven) :mqtt #(ven/get-mqtt-topics-ven %))
+
+  ;; Check messages
+  (ch/channel-messages (ven/get-channel (ven) :mqtt))
+  (ch/await-channel-messages (ven/get-channel (ven) :mqtt) 1 5000)
+  (ch/clear-channel-messages! (ven/get-channel (ven) :mqtt))
+
+  ;; Channels auto-stop on component/stop
+
+  ;; -------------------------------------------------------------------------
+  ;; Webhook via VenClient channel management
+  ;; -------------------------------------------------------------------------
+  (ven/add-webhook (ven) {:port 0 :callback-host "127.0.0.1"})
+  (ch/callback-url (ven/get-channel (ven) :webhook))
+
+  ;; -------------------------------------------------------------------------
+  ;; Standalone channels (without VenClient)
+  ;; -------------------------------------------------------------------------
+  (def mqtt (-> (ch/mqtt-channel "tcp://localhost:1883") ch/channel-start))
+  (ch/subscribe-topics mqtt ["programs/+"])
+  (ch/channel-messages mqtt)
+  (ch/channel-stop mqtt)
+
+  ;; -------------------------------------------------------------------------
+  ;; Event polling
+  ;; -------------------------------------------------------------------------
+  (ven/poll-events (ven))
+  (ven/poll-events (ven) {:program-id "42"})
 
   ;; -------------------------------------------------------------------------
   ;; Single client (without system)
   ;; -------------------------------------------------------------------------
   (def my-ven (component/start
-               (client/oa3-client {:type :ven
-                                   :url vtn-url
-                                   :token "ven_token"})))
-  (client/programs my-ven)
+               (ven/ven-client {:url vtn-url :token "ven_token"})))
+  (base/programs my-ven)
   (component/stop my-ven))
