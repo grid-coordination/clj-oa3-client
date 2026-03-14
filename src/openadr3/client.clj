@@ -38,6 +38,7 @@
             [openadr3.api :as api]
             [openadr3.entities :as entities]
             [openadr3.mqtt :as mqtt]
+            [openadr3.webhook :as webhook]
             [clojure.tools.logging :as log]
             [hato.client :as hc]))
 
@@ -416,4 +417,81 @@
   (when-let [conn (mqtt-conn client)]
     (mqtt/disconnect! conn)
     (swap! (:state client) dissoc :mqtt))
+  client)
+
+;; ---------------------------------------------------------------------------
+;; Webhook notifications
+;; ---------------------------------------------------------------------------
+
+(defn start-webhook!
+  "Start a webhook notification receiver. Stores it in the client's state.
+  Returns the client for threading.
+
+  Options:
+    :host          — bind address (default \"0.0.0.0\")
+    :port          — bind port, 0 for OS-assigned ephemeral (default 0)
+    :path          — HTTP path for callbacks (default \"/notifications\")
+    :callback-host — hostname/IP used in callback URL (default \"127.0.0.1\")
+    :bearer-token  — optional Bearer token for auth verification
+    :on-message    — optional callback (fn [path payload])"
+  ([client]
+   (start-webhook! client {}))
+  ([client opts]
+   (let [recv (webhook/start! opts)]
+     (swap! (:state client) assoc :webhook recv)
+     client)))
+
+(defn webhook-receiver
+  "Returns the webhook receiver from the client's state, or nil."
+  [client]
+  (:webhook @(:state client)))
+
+(defn- require-webhook
+  "Returns the webhook receiver or throws."
+  [client]
+  (or (webhook-receiver client)
+      (throw (ex-info "Webhook not started. Call start-webhook! first."
+                      {:client-type (:client-type client)}))))
+
+(defn webhook-callback-url
+  "Returns the webhook callback URL to register with the VTN."
+  [client]
+  (webhook/callback-url (require-webhook client)))
+
+(defn webhook-messages
+  "Returns all webhook messages received by this client."
+  [client]
+  (webhook/messages (require-webhook client)))
+
+(defn webhook-messages-on-path
+  "Returns webhook messages received on a specific path."
+  [client path]
+  (webhook/messages-on-path (require-webhook client) path))
+
+(defn await-webhook-messages
+  "Wait for at least n webhook messages, or timeout (default 5000ms)."
+  ([client n]
+   (webhook/await-messages (require-webhook client) n))
+  ([client n timeout-ms]
+   (webhook/await-messages (require-webhook client) n timeout-ms)))
+
+(defn await-webhook-messages-on-path
+  "Wait for at least n webhook messages on a specific path, or timeout."
+  ([client path n]
+   (webhook/await-messages-on-path (require-webhook client) path n))
+  ([client path n timeout-ms]
+   (webhook/await-messages-on-path (require-webhook client) path n timeout-ms)))
+
+(defn clear-webhook-messages!
+  "Clear collected webhook messages."
+  [client]
+  (webhook/clear-messages! (require-webhook client))
+  client)
+
+(defn stop-webhook!
+  "Stop the webhook server."
+  [client]
+  (when-let [recv (webhook-receiver client)]
+    (webhook/stop! recv)
+    (swap! (:state client) dissoc :webhook))
   client)
