@@ -42,10 +42,17 @@
       (.write os bs))))
 
 (defn- parse-webhook-payload
-  "Parse webhook payload string. Coerces OpenADR notifications via entities."
+  "Parse webhook payload string. Coerces OpenADR notifications via entities.
+  Handles double-encoded JSON (VTN-RI sends the notification as a JSON-encoded
+  string inside a JSON body)."
   [^String s ^String path]
   (try
-    (let [parsed (json/read-str s :key-fn keyword)]
+    (let [parsed (json/read-str s :key-fn keyword)
+          ;; Handle double-encoded JSON: if first parse yields a string,
+          ;; parse again to get the actual map.
+          parsed (if (string? parsed)
+                   (json/read-str parsed :key-fn keyword)
+                   parsed)]
       (if (entities/notification? parsed)
         (entities/->notification parsed {:openadr/channel :webhook
                                          :openadr/path    path})
