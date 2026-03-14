@@ -28,6 +28,7 @@
             [openadr3.api :as api]
             [openadr3.channel :as channel]
             [openadr3.client.base :as base]
+            [openadr3.discovery :as discovery]
             [openadr3.entities :as entities]
             [clojure.tools.logging :as log]))
 
@@ -37,11 +38,13 @@
 
 (defrecord VenClient [;; config (provided at construction)
                       client-type     ; always :ven
-                      url             ; VTN base URL
+                      url             ; VTN base URL (or nil if using discovery)
                       token           ; Bearer token (may be nil if using credentials)
                       client-id       ; OAuth2 client ID (optional)
                       client-secret   ; OAuth2 client secret (optional)
                       spec-version    ; e.g. "3.1.0"
+                      ;; optional injected component
+                      discovery       ; MdnsDiscoverer (injected via component/using)
                       ;; runtime (set on start)
                       martian         ; the Martian client instance
                       ;; mutable runtime state
@@ -53,14 +56,22 @@
     (if martian
       (do (log/info "VenClient already started" {:url url})
           this)
-      (let [resolved-token (or token
+      (let [resolved-url   (or url
+                               (when discovery
+                                 (let [urls (discovery/vtn-urls discovery)]
+                                   (when (seq urls)
+                                     (log/info "VTN URL discovered via mDNS" {:url (first urls)})
+                                     (first urls))))
+                               (throw (ex-info "No VTN URL provided and no discovery available"
+                                               {})))
+            resolved-token (or token
                                (do (log/info "Fetching OAuth2 token" {:client-id client-id})
-                                   (base/fetch-token url client-id client-secret)))
+                                   (base/fetch-token resolved-url client-id client-secret)))
             spec-file      (base/spec-path (or spec-version base/default-spec-version))
-            m              (api/create-ven-client spec-file resolved-token url)]
-        (log/info "VenClient started" {:url url
+            m              (api/create-ven-client spec-file resolved-token resolved-url)]
+        (log/info "VenClient started" {:url resolved-url
                                        :spec-version (or spec-version base/default-spec-version)})
-        (assoc this :token resolved-token :martian m))))
+        (assoc this :url resolved-url :token resolved-token :martian m))))
 
   (stop [this]
     (when martian
@@ -82,15 +93,19 @@
   "Create a VenClient component (not yet started).
 
   Options:
-    :url           — VTN base URL (required)
+    :url           — VTN base URL (required unless :discovery is injected)
     :token         — Bearer auth token (provide this OR client-id + client-secret)
     :client-id     — OAuth2 client ID (used with :client-secret)
     :client-secret — OAuth2 client secret (used with :client-id)
     :spec-version  — OpenAPI spec version, default \"3.1.0\"
 
+  The URL can be omitted when an MdnsDiscoverer is injected via
+  component/using — the VTN URL will be resolved from discovered services
+  on start.
+
   Call component/start to connect."
   [{:keys [url token client-id client-secret spec-version]}]
-  {:pre [(string? url)
+  {:pre [(or (string? url) (nil? url))
          (or (string? token)
              (and (string? client-id) (string? client-secret)))]}
   (map->VenClient {:client-type    :ven

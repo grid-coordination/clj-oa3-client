@@ -8,6 +8,9 @@
         ;; Component lifecycle
         com.stuartsierra/component     {:mvn/version "1.1.0"}
 
+        ;; mDNS discovery
+        energy.grid-coordination/clj-mdns {:local/root "../clj-mdns"}
+
         ;; MQTT notifications
         clojurewerkz/machine_head     {:mvn/version "1.0.0"}
 

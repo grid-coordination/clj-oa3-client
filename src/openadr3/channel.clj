@@ -21,7 +21,8 @@
     (ch/callback-url wh)
     (ch/channel-messages wh)
     (ch/channel-stop wh)"
-  (:require [openadr3.mqtt :as mqtt]
+  (:require [com.stuartsierra.component :as component]
+            [openadr3.mqtt :as mqtt]
             [openadr3.webhook :as webhook]
             [clojure.tools.logging :as log]))
 
@@ -40,6 +41,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defrecord MqttChannel [broker-url opts conn-atom]
+  component/Lifecycle
+  (start [this] (channel-start this))
+  (stop  [this] (channel-stop this))
+
   NotificationChannel
 
   (channel-start [this]
@@ -82,6 +87,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defrecord WebhookChannel [opts receiver-atom]
+  component/Lifecycle
+  (start [this] (channel-start this))
+  (stop  [this] (channel-stop this))
+
   NotificationChannel
 
   (channel-start [this]

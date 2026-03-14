@@ -4,6 +4,7 @@
             [openadr3.client.ven :as ven]
             [openadr3.client.bl :as bl]
             [openadr3.channel :as ch]
+            [openadr3.discovery :as disc]
             [openadr3.entities :as entities]))
 
 (def vtn-url "http://localhost:8080/openadr3/3.1.0")
@@ -111,18 +112,39 @@
   (ch/callback-url (ven/get-channel (ven) :webhook))
 
   ;; -------------------------------------------------------------------------
-  ;; Standalone channels (without VenClient)
+  ;; Standalone channels (as Components)
   ;; -------------------------------------------------------------------------
-  (def mqtt (-> (ch/mqtt-channel "tcp://localhost:1883") ch/channel-start))
+  (def mqtt (component/start (ch/mqtt-channel "tcp://localhost:1883")))
   (ch/subscribe-topics mqtt ["programs/+"])
   (ch/channel-messages mqtt)
-  (ch/channel-stop mqtt)
+  (component/stop mqtt)
 
   ;; -------------------------------------------------------------------------
   ;; Event polling
   ;; -------------------------------------------------------------------------
   (ven/poll-events (ven))
   (ven/poll-events (ven) {:program-id "42"})
+
+  ;; -------------------------------------------------------------------------
+  ;; mDNS discovery (standalone)
+  ;; -------------------------------------------------------------------------
+  (def d (component/start (disc/mdns-discoverer)))
+  (disc/discovered-services d)       ;; async — services trickle in
+  (disc/discover-vtns d)             ;; sync — blocks for 5s
+  (disc/vtn-urls d)
+  (component/stop d)
+
+  ;; -------------------------------------------------------------------------
+  ;; mDNS discovery wired into VenClient
+  ;; -------------------------------------------------------------------------
+  (def sys (component/start-system
+            {:discovery (disc/mdns-discoverer)
+             :ven (component/using
+                   (ven/ven-client {:token "ven_token"})  ;; no URL needed!
+                   [:discovery])}))
+  ;; VenClient resolves URL from mDNS on start
+  (:url (:ven sys))
+  (component/stop-system sys)
 
   ;; -------------------------------------------------------------------------
   ;; Single client (without system)
