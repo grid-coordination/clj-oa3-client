@@ -25,6 +25,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defrecord BlClient [;; config (provided at construction)
+                     client-type     ; always :bl
                      url             ; VTN base URL
                      token           ; Bearer token (may be nil if using credentials)
                      client-id       ; OAuth2 client ID (optional)
@@ -73,7 +74,8 @@
   {:pre [(string? url)
          (or (string? token)
              (and (string? client-id) (string? client-secret)))]}
-  (map->BlClient {:url            url
+  (map->BlClient {:client-type    :bl
+                  :url            url
                   :token          token
                   :client-id      client-id
                   :client-secret  client-secret

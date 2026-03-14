@@ -36,6 +36,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defrecord VenClient [;; config (provided at construction)
+                      client-type     ; always :ven
                       url             ; VTN base URL
                       token           ; Bearer token (may be nil if using credentials)
                       client-id       ; OAuth2 client ID (optional)
@@ -92,7 +93,8 @@
   {:pre [(string? url)
          (or (string? token)
              (and (string? client-id) (string? client-secret)))]}
-  (map->VenClient {:url            url
+  (map->VenClient {:client-type    :ven
+                   :url            url
                    :token          token
                    :client-id      client-id
                    :client-secret  client-secret
@@ -285,5 +287,5 @@
    (if program-id
      (let [resp (base/search-events client {:programID program-id})]
        (when (base/success? resp)
-         (mapv #(openadr3.entities/->event %) (base/body resp))))
+         (mapv entities/->event (base/body resp))))
      (base/events client))))
