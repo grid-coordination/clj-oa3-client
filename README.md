@@ -2,7 +2,7 @@
 
 Component-based OpenADR 3 client framework built on [clj-oa3](https://github.com/grid-coordination/clj-oa3).
 
-Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](https://github.com/stuartsierra/component) lifecycle management, a `NotificationChannel` protocol for MQTT and webhook notifications, and a backward-compatible facade namespace.
+Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](https://github.com/stuartsierra/component) lifecycle management, a `NotificationChannel` protocol for MQTT and webhook notifications, and mDNS discovery for local VTNs.
 
 ## Features
 
@@ -18,35 +18,32 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│              Your Application                    │
-│                                                  │
-│  (client/programs my-ven)                        │
-│  (ven/subscribe my-ven :mqtt topic-fn)           │
-│  (channel/channel-messages mqtt-ch)              │
-├──────────────────────────────────────────────────┤
-│  openadr3.client (facade)                        │
-│    Re-exports base + ven + bl for backward compat│
-├──────────────────────────────────────────────────┤
-│  openadr3.client.ven     openadr3.client.bl      │
-│    VenClient Component     BlClient Component    │
-│    • VEN registration      • Admin access        │
-│    • Channel mgmt          • Full API            │
-│    • Program caching                             │
-│    • Notifier discovery                          │
-│    • mDNS VTN discovery                          │
-├──────────────────────────────────────────────────┤
-│  openadr3.channel          openadr3.discovery     │
-│    NotificationChannel       MdnsDiscoverer       │
-│    MqttChannel (Component)   Component wrapping   │
-│    WebhookChannel (Comp.)    clj-mdns             │
-├──────────────────────────────────────────────────┤
-│  openadr3.client.base                            │
-│    Spec resolution, token fetch, API delegation  │
-├──────────────────────────────────────────────────┤
-│  clj-oa3 (openadr3.api + openadr3.entities)      │
-│  Martian + Hato + OpenAPI spec                   │
-└──────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  Your Application                                  │
+│                                                    │
+│  (base/programs my-ven)                            │
+│  (ven/subscribe my-ven :mqtt topic-fn)             │
+│  (ch/channel-messages mqtt-ch)                     │
+├────────────────────────────────────────────────────┤
+│  openadr3.client.ven       openadr3.client.bl      │
+│    VenClient Component       BlClient Component    │
+│    • VEN registration        • Admin access        │
+│    • Channel management      • Full API            │
+│    • Program caching                               │
+│    • Notifier discovery                            │
+│    • mDNS VTN discovery                            │
+├────────────────────────────────────────────────────┤
+│  openadr3.channel            openadr3.discovery    │
+│    NotificationChannel         MdnsDiscoverer      │
+│    MqttChannel (Component)     Component wrapping  │
+│    WebhookChannel (Component)  clj-mdns            │
+├────────────────────────────────────────────────────┤
+│  openadr3.client.base                              │
+│    Spec resolution, token fetch, API delegation    │
+├────────────────────────────────────────────────────┤
+│  clj-oa3 (openadr3.api + openadr3.entities)        │
+│  Martian + Hato + OpenAPI spec                     │
+└────────────────────────────────────────────────────┘
 ```
 
 ## Prerequisites
@@ -96,26 +93,6 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 (base/create-program my-bl {:programName "My Program"})
 
 (component/stop my-bl)
-```
-
-### Backward-Compatible Facade
-
-Existing code using `openadr3.client` continues to work. `oa3-client` now dispatches to `ven-client` or `bl-client` based on `:type`:
-
-```clojure
-(require '[openadr3.client :as client])
-
-(def my-ven
-  (component/start
-    (client/oa3-client {:type  :ven
-                        :url   "http://localhost:8080/openadr3/3.1.0"
-                        :token "my-ven-token"})))
-
-(client/programs my-ven)
-(client/register! my-ven "my-ven")
-(client/get-mqtt-topics-ven my-ven)  ;; auto-uses registered ven-id
-
-(component/stop my-ven)
 ```
 
 ## Notification Channels
@@ -300,7 +277,7 @@ Available spec versions: `"3.0.0"`, `"3.0.1"`, `"3.1.0"`, `"3.1.1"`
 
 ## API Reference
 
-All `openadr3.api` functions are available through `openadr3.client.base` (and re-exported by the `openadr3.client` facade). The client is always the first argument.
+All `openadr3.api` functions are available through `openadr3.client.base`. The client is always the first argument.
 
 ### Raw CRUD (returns `{:status :body}`)
 
@@ -362,7 +339,6 @@ All `openadr3.api` functions are available through `openadr3.client.base` (and r
 
 | Namespace | Purpose |
 |-----------|---------|
-| `openadr3.client` | Facade — re-exports everything, backward compatible |
 | `openadr3.client.ven` | VenClient component, registration, channels, VEN operations |
 | `openadr3.client.bl` | BlClient component |
 | `openadr3.client.base` | Shared: spec resolution, token fetch, API delegation |
@@ -434,4 +410,4 @@ The `dev/user.clj` namespace provides a system atom with convenience functions:
 
 ## License
 
-Copyright (c) 2026. All rights reserved.
+[MIT License](LICENSE) - Copyright (c) 2026 Grid Coordination
