@@ -11,6 +11,9 @@
         ;; MQTT notifications
         clojurewerkz/machine_head     {:mvn/version "1.0.0"}
 
+        ;; HTTP (for OAuth2 token fetch, also transitive via clj-oa3)
+        hato/hato                      {:mvn/version "1.0.0"}
+
         ;; Utilities
         medley/medley                  {:mvn/version "1.4.0"}
 

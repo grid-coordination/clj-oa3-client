@@ -8,10 +8,17 @@
   Usage:
     (require '[openadr3.client :as client])
 
-    ;; Create and start a VEN client
+    ;; Create and start a VEN client (with pre-obtained token)
     (def c (-> (client/oa3-client {:type :ven
                                    :url \"http://localhost:8080/openadr3/3.1.0\"
                                    :token \"my-token\"})
+               component/start))
+
+    ;; Or use OAuth2 client credentials (token fetched on start)
+    (def c (-> (client/oa3-client {:type :ven
+                                   :url \"http://localhost:8080/openadr3/3.1.0\"
+                                   :client-id \"ven_client\"
+                                   :client-secret \"999\"})
                component/start))
 
     ;; Register the VEN (stores ven-id in the client's state atom)
@@ -31,7 +38,8 @@
             [openadr3.api :as api]
             [openadr3.entities :as entities]
             [openadr3.mqtt :as mqtt]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [hato.client :as hc]))
 
 ;; ---------------------------------------------------------------------------
 ;; Spec file resolution
@@ -64,18 +72,54 @@
     (.getPath url)))
 
 ;; ---------------------------------------------------------------------------
+;; OAuth2 token fetch (bypasses Martian — used before client creation)
+;; ---------------------------------------------------------------------------
+
+(defn fetch-token
+  "Fetch an OAuth2 access token using client credentials grant.
+
+  Discovers the token endpoint via GET {base-url}/auth/server, then
+  POSTs to the token URL with the client credentials. Returns the
+  access_token string.
+
+  This uses hato directly (not Martian) because we need a token before
+  we can create the authenticated Martian client."
+  [base-url client-id client-secret]
+  (let [base     (.replaceAll ^String base-url "/+$" "")
+        http     (hc/build-http-client {:redirect-policy :normal})
+        auth-resp (hc/get (str base "/auth/server")
+                          {:http-client http :as :json})
+        token-url (get-in auth-resp [:body :tokenURL])]
+    (when-not token-url
+      (throw (ex-info "No tokenURL in auth server response"
+                      {:status (:status auth-resp)
+                       :body   (:body auth-resp)})))
+    (let [token-resp (hc/post token-url
+                              {:http-client http
+                               :form-params {:grant_type    "client_credentials"
+                                             :client_id     client-id
+                                             :client_secret client-secret}
+                               :as :json})]
+      (or (get-in token-resp [:body :access_token])
+          (throw (ex-info "No access_token in token response"
+                          {:status (:status token-resp)
+                           :body   (:body token-resp)}))))))
+
+;; ---------------------------------------------------------------------------
 ;; Component
 ;; ---------------------------------------------------------------------------
 
 (defrecord OA3Client [;; config (provided at construction)
-                      client-type   ; :ven or :bl
-                      url           ; VTN base URL
-                      token         ; Bearer token
-                      spec-version  ; e.g. "3.1.0"
+                      client-type     ; :ven or :bl
+                      url             ; VTN base URL
+                      token           ; Bearer token (may be nil if using credentials)
+                      client-id       ; OAuth2 client ID (optional)
+                      client-secret   ; OAuth2 client secret (optional)
+                      spec-version    ; e.g. "3.1.0"
                       ;; runtime (set on start)
-                      martian       ; the Martian client instance
+                      martian         ; the Martian client instance
                       ;; mutable runtime state (atom, created at construction)
-                      state         ; atom — populated by register!, etc.
+                      state           ; atom — populated by register!, etc.
                       ]
   component/Lifecycle
 
@@ -83,14 +127,17 @@
     (if martian
       (do (log/info "OA3Client already started" {:type client-type :url url})
           this)
-      (let [spec-file (spec-path (or spec-version default-spec-version))
-            create-fn (case client-type
-                        :ven api/create-ven-client
-                        :bl  api/create-bl-client)
-            m (create-fn spec-file token url)]
+      (let [resolved-token (or token
+                               (do (log/info "Fetching OAuth2 token" {:client-id client-id})
+                                   (fetch-token url client-id client-secret)))
+            spec-file      (spec-path (or spec-version default-spec-version))
+            create-fn      (case client-type
+                             :ven api/create-ven-client
+                             :bl  api/create-bl-client)
+            m              (create-fn spec-file resolved-token url)]
         (log/info "OA3Client started" {:type client-type :url url
                                        :spec-version (or spec-version default-spec-version)})
-        (assoc this :martian m))))
+        (assoc this :token resolved-token :martian m))))
 
   (stop [this]
     (if martian
@@ -102,21 +149,30 @@
   "Create an OA3Client component (not yet started).
 
   Options:
-    :type         — :ven or :bl (required)
-    :url          — VTN base URL (required)
-    :token        — Bearer auth token (required)
-    :spec-version — OpenAPI spec version, default \"3.1.0\"
+    :type          — :ven or :bl (required)
+    :url           — VTN base URL (required)
+    :token         — Bearer auth token (provide this OR client-id + client-secret)
+    :client-id     — OAuth2 client ID (used with :client-secret)
+    :client-secret — OAuth2 client secret (used with :client-id)
+    :spec-version  — OpenAPI spec version, default \"3.1.0\"
+
+  Either :token or both :client-id and :client-secret must be provided.
+  When using client credentials, the token is fetched during start via
+  the VTN's /auth/server endpoint.
 
   Call component/start to connect."
-  [{:keys [type url token spec-version]}]
+  [{:keys [type url token client-id client-secret spec-version]}]
   {:pre [(#{:ven :bl} type)
          (string? url)
-         (string? token)]}
-  (map->OA3Client {:client-type  type
-                   :url          url
-                   :token        token
-                   :spec-version (or spec-version default-spec-version)
-                   :state        (atom {})}))
+         (or (string? token)
+             (and (string? client-id) (string? client-secret)))]}
+  (map->OA3Client {:client-type    type
+                   :url            url
+                   :token          token
+                   :client-id      client-id
+                   :client-secret  client-secret
+                   :spec-version   (or spec-version default-spec-version)
+                   :state          (atom {})}))
 
 ;; ---------------------------------------------------------------------------
 ;; Convenience accessors — delegate to openadr3.api using :martian
