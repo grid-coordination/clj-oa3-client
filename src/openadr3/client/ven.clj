@@ -46,6 +46,7 @@
                       ;; optional injected component
                       discovery       ; MdnsDiscoverer (injected via component/using)
                       ;; runtime (set on start)
+                      http-client     ; shared Java HttpClient
                       martian         ; the Martian client instance
                       ;; mutable runtime state
                       state           ; atom — {:ven-id, :ven-name, :channels, :program-cache}
@@ -56,7 +57,8 @@
     (if martian
       (do (log/info "VenClient already started" {:url url})
           this)
-      (let [resolved-url   (or url
+      (let [hc             (api/build-shared-http-client {})
+            resolved-url   (or url
                                (when discovery
                                  (let [urls (discovery/vtn-urls discovery)]
                                    (when (seq urls)
@@ -66,12 +68,13 @@
                                                {})))
             resolved-token (or token
                                (do (log/info "Fetching OAuth2 token" {:client-id client-id})
-                                   (base/fetch-token resolved-url client-id client-secret)))
+                                   (base/fetch-token resolved-url client-id client-secret hc)))
             spec-file      (base/spec-path (or spec-version base/default-spec-version))
-            m              (api/create-ven-client spec-file resolved-token resolved-url)]
+            m              (api/create-ven-client spec-file resolved-token resolved-url hc)]
         (log/info "VenClient started" {:url resolved-url
                                        :spec-version (or spec-version base/default-spec-version)})
-        (assoc this :url resolved-url :token resolved-token :martian m))))
+        (assoc this :url resolved-url :token resolved-token
+               :http-client hc :martian m))))
 
   (stop [this]
     (when martian
@@ -83,7 +86,7 @@
             (log/warn "Error stopping channel" {:error (.getMessage e)}))))
       (swap! state assoc :channels {})
       (log/info "VenClient stopped" {:url url}))
-    (assoc this :martian nil)))
+    (assoc this :http-client nil :martian nil)))
 
 ;; For base/martian accessor compatibility
 (defmethod print-method VenClient [v ^java.io.Writer w]

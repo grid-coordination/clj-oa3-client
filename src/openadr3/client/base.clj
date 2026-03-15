@@ -49,28 +49,33 @@
   POSTs to the token URL with the client credentials. Returns the
   access_token string.
 
+  When http-client is provided, it is reused for both requests.
+  Otherwise a new HttpClient is built internally.
+
   This uses hato directly (not Martian) because we need a token before
   we can create the authenticated Martian client."
-  [base-url client-id client-secret]
-  (let [base     (.replaceAll ^String base-url "/+$" "")
-        http     (hc/build-http-client {:redirect-policy :normal})
-        auth-resp (hc/get (str base "/auth/server")
-                          {:http-client http :as :json})
-        token-url (get-in auth-resp [:body :tokenURL])]
-    (when-not token-url
-      (throw (ex-info "No tokenURL in auth server response"
-                      {:status (:status auth-resp)
-                       :body   (:body auth-resp)})))
-    (let [token-resp (hc/post token-url
-                              {:http-client http
-                               :form-params {:grant_type    "client_credentials"
-                                             :client_id     client-id
-                                             :client_secret client-secret}
-                               :as :json})]
-      (or (get-in token-resp [:body :access_token])
-          (throw (ex-info "No access_token in token response"
-                          {:status (:status token-resp)
-                           :body   (:body token-resp)}))))))
+  ([base-url client-id client-secret]
+   (fetch-token base-url client-id client-secret nil))
+  ([base-url client-id client-secret http-client]
+   (let [base     (.replaceAll ^String base-url "/+$" "")
+         http     (or http-client (hc/build-http-client {:redirect-policy :normal}))
+         auth-resp (hc/get (str base "/auth/server")
+                           {:http-client http :as :json})
+         token-url (get-in auth-resp [:body :tokenURL])]
+     (when-not token-url
+       (throw (ex-info "No tokenURL in auth server response"
+                       {:status (:status auth-resp)
+                        :body   (:body auth-resp)})))
+     (let [token-resp (hc/post token-url
+                               {:http-client http
+                                :form-params {:grant_type    "client_credentials"
+                                              :client_id     client-id
+                                              :client_secret client-secret}
+                                :as :json})]
+       (or (get-in token-resp [:body :access_token])
+           (throw (ex-info "No access_token in token response"
+                           {:status (:status token-resp)
+                            :body   (:body token-resp)})))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Martian accessor

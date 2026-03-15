@@ -32,6 +32,7 @@
                      client-secret   ; OAuth2 client secret (optional)
                      spec-version    ; e.g. "3.1.0"
                      ;; runtime (set on start)
+                     http-client     ; shared Java HttpClient
                      martian         ; the Martian client instance
                      ;; mutable runtime state
                      state           ; atom
@@ -42,19 +43,20 @@
     (if martian
       (do (log/info "BlClient already started" {:url url})
           this)
-      (let [resolved-token (or token
+      (let [hc             (api/build-shared-http-client {})
+            resolved-token (or token
                                (do (log/info "Fetching OAuth2 token" {:client-id client-id})
-                                   (base/fetch-token url client-id client-secret)))
+                                   (base/fetch-token url client-id client-secret hc)))
             spec-file      (base/spec-path (or spec-version base/default-spec-version))
-            m              (api/create-bl-client spec-file resolved-token url)]
+            m              (api/create-bl-client spec-file resolved-token url hc)]
         (log/info "BlClient started" {:url url
                                       :spec-version (or spec-version base/default-spec-version)})
-        (assoc this :token resolved-token :martian m))))
+        (assoc this :token resolved-token :http-client hc :martian m))))
 
   (stop [this]
     (when martian
       (log/info "BlClient stopped" {:url url}))
-    (assoc this :martian nil)))
+    (assoc this :http-client nil :martian nil)))
 
 (defmethod print-method BlClient [v ^java.io.Writer w]
   (.write w (str "#<BlClient " (:url v) ">")))
