@@ -105,6 +105,9 @@ The `NotificationChannel` protocol provides a unified interface for MQTT and web
 ;; Add an MQTT channel (creates and starts it)
 (ven/add-mqtt my-ven "tcp://broker:1883" {:client-id "my-ven"})
 
+;; With broker authentication (e.g. Mosquitto dynsec)
+(ven/add-mqtt my-ven "tcp://broker:1883" {:username "ven-123" :password "secret"})
+
 ;; Subscribe to VEN-scoped topics
 (ven/subscribe my-ven :mqtt #(ven/get-mqtt-topics-ven %))
 
@@ -145,6 +148,11 @@ work standalone in a component system or managed by VenClient:
 (ch/subscribe-topics mqtt ["programs/+" "events/+"])
 (ch/channel-messages mqtt)
 (component/stop mqtt)
+
+;; With broker authentication
+(def mqtt (component/start
+            (ch/mqtt-channel "tcp://broker:1883"
+                             {:username "ven-123" :password "secret"})))
 
 ;; Or via the protocol directly
 (def wh (-> (ch/webhook-channel {:port 0 :callback-host "192.168.1.50"})

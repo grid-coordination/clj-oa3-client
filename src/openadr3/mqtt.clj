@@ -61,17 +61,24 @@
 
   Options:
     :client-id  — MQTT client ID (default: auto-generated)
+    :username   — MQTT username for broker authentication
+    :password   — MQTT password for broker authentication
     :on-message — optional callback (fn [topic metadata payload-map])
                    called in addition to collecting in :messages"
   ([broker-url]
    (connect! broker-url {}))
-  ([broker-url {:keys [client-id on-message]}]
+  ([broker-url {:keys [client-id username password on-message]}]
    (let [paho-url (normalize-broker-uri broker-url)
          messages (atom [])
          client   (mh/connect paho-url
                               (cond-> {}
-                                client-id (assoc :client-id client-id)))]
-     (log/info "MQTT connected" {:broker broker-url :client-id client-id})
+                                client-id (assoc :client-id client-id)
+                                (or username password)
+                                (assoc :opts (cond-> {}
+                                               username (assoc :username username)
+                                               password (assoc :password password)))))]
+     (log/info "MQTT connected" {:broker broker-url :client-id client-id
+                                 :username username})
      {:client     client
       :broker-url broker-url
       :messages   messages

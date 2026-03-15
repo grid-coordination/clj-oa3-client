@@ -134,6 +134,8 @@
 
   Options:
     :client-id  — MQTT client ID (default: auto-generated)
+    :username   — MQTT username for broker authentication
+    :password   — MQTT password for broker authentication
     :on-message — callback (fn [topic metadata payload])"
   ([broker-url] (mqtt-channel broker-url {}))
   ([broker-url opts]
