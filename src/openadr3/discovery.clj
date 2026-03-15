@@ -27,7 +27,7 @@
 
 (def default-service-type
   "Default mDNS service type for OpenADR 3 VTNs."
-  "_openadr._tcp.local.")
+  "_openadr3._tcp.local.")
 
 ;; ---------------------------------------------------------------------------
 ;; Component
@@ -82,7 +82,7 @@
   "Create an MdnsDiscoverer component (not yet started).
 
   Options:
-    :service-type  — mDNS service type (default \"_openadr._tcp.local.\")
+    :service-type  — mDNS service type (default \"_openadr3._tcp.local.\")
     :bind-address  — java.net.InetAddress to bind to (default: auto-detected LAN IP)"
   ([] (mdns-discoverer {}))
   ([{:keys [service-type bind-address]}]
