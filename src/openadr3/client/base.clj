@@ -9,36 +9,6 @@
             [hato.client :as hc]))
 
 ;; ---------------------------------------------------------------------------
-;; Spec file resolution
-;; ---------------------------------------------------------------------------
-
-(def spec-versions
-  "Map of OA3 spec version string to classpath resource path."
-  {"3.0.0" "openadr3-specification/3.0.0/oadr3.0.0.yaml"
-   "3.0.1" "openadr3-specification/3.0.1/openadr3.yaml"
-   "3.1.0" "openadr3-specification/3.1.0/openadr3.yaml"
-   "3.1.1" "openadr3-specification/3.1.1/openadr3.yaml"})
-
-(def default-spec-version "3.1.0")
-
-(defn spec-path
-  "Resolve a spec version string to a classpath resource URL string.
-  The spec is on the classpath via the clj-oa3 dependency.
-  Throws if the version is unknown or the resource is not found."
-  [version]
-  (let [resource-path (or (get spec-versions version)
-                          (throw (ex-info (str "Unknown OpenADR spec version: " version
-                                               ". Known versions: " (keys spec-versions))
-                                          {:version version
-                                           :known (keys spec-versions)})))
-        url (.getResource (clojure.lang.RT/baseLoader) resource-path)]
-    (when-not url
-      (throw (ex-info (str "OpenAPI spec not found on classpath: " resource-path
-                           ". Ensure clj-oa3 is a dependency with the spec symlink in resources/.")
-                      {:resource-path resource-path :version version})))
-    (.getPath url)))
-
-;; ---------------------------------------------------------------------------
 ;; OAuth2 token fetch (bypasses Martian — used before client creation)
 ;; ---------------------------------------------------------------------------
 

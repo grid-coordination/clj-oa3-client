@@ -47,10 +47,11 @@
             resolved-token (or token
                                (do (log/info "Fetching OAuth2 token" {:client-id client-id})
                                    (base/fetch-token url client-id client-secret hc)))
-            spec-file      (base/spec-path (or spec-version base/default-spec-version))
-            m              (api/create-bl-client spec-file resolved-token url hc)]
+            m              (api/create-bl-client resolved-token url
+                                                 {:spec-version (or spec-version api/default-spec-version)
+                                                  :http-client  hc})]
         (log/info "BlClient started" {:url url
-                                      :spec-version (or spec-version base/default-spec-version)})
+                                      :spec-version (or spec-version api/default-spec-version)})
         (assoc this :token resolved-token :http-client hc :martian m))))
 
   (stop [this]
@@ -81,5 +82,5 @@
                   :token          token
                   :client-id      client-id
                   :client-secret  client-secret
-                  :spec-version   (or spec-version base/default-spec-version)
+                  :spec-version   (or spec-version api/default-spec-version)
                   :state          (atom {})}))

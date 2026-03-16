@@ -69,10 +69,11 @@
             resolved-token (or token
                                (do (log/info "Fetching OAuth2 token" {:client-id client-id})
                                    (base/fetch-token resolved-url client-id client-secret hc)))
-            spec-file      (base/spec-path (or spec-version base/default-spec-version))
-            m              (api/create-ven-client spec-file resolved-token resolved-url hc)]
+            m              (api/create-ven-client resolved-token resolved-url
+                                                  {:spec-version (or spec-version api/default-spec-version)
+                                                   :http-client  hc})]
         (log/info "VenClient started" {:url resolved-url
-                                       :spec-version (or spec-version base/default-spec-version)})
+                                       :spec-version (or spec-version api/default-spec-version)})
         (assoc this :url resolved-url :token resolved-token
                :http-client hc :martian m))))
 
@@ -116,7 +117,7 @@
                    :token          token
                    :client-id      client-id
                    :client-secret  client-secret
-                   :spec-version   (or spec-version base/default-spec-version)
+                   :spec-version   (or spec-version api/default-spec-version)
                    :state          (atom {:channels {} :program-cache {}})}))
 
 ;; ---------------------------------------------------------------------------
