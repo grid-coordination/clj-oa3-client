@@ -349,7 +349,7 @@ All `openadr3.api` functions are available through `openadr3.client.base`. The c
 |-----------|---------|
 | `openadr3.client.ven` | VenClient component, registration, channels, VEN operations |
 | `openadr3.client.bl` | BlClient component |
-| `openadr3.client.base` | Shared: spec resolution, token fetch, API delegation |
+| `openadr3.client.base` | Shared: token fetch, API delegation |
 | `openadr3.channel` | NotificationChannel protocol, MqttChannel, WebhookChannel (all Components) |
 | `openadr3.discovery` | MdnsDiscoverer Component for VTN discovery via mDNS |
 | `openadr3.mqtt` | Low-level MQTT broker connection and subscription |
@@ -374,6 +374,14 @@ Both `VenClient` and `BlClient` implement `component/Lifecycle`:
 ```
 
 ## Development
+
+### Run Tests
+
+```bash
+clojure -M:test
+```
+
+Unit tests use [kaocha](https://github.com/lambdaisland/kaocha) and cover pure functions (URI normalization, topic extraction, webhook parsing, etc.). Integration tests against a live VTN are in [clj-oa3-test](https://github.com/grid-coordination/clj-oa3-test).
 
 ### Start nREPL
 
