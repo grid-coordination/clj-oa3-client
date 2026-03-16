@@ -418,4 +418,4 @@ The `dev/user.clj` namespace provides a system atom with convenience functions:
 
 ## License
 
-[MIT License](LICENSE) - Copyright (c) 2026 Grid Coordination
+[MIT License](LICENSE) — Copyright (c) 2026 Clark Communications Corporation
