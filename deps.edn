@@ -32,6 +32,11 @@
                  :extra-deps {babashka/process {:mvn/version "0.6.23"}
                               io.github.paintparty/fireworks {:mvn/version "0.12.6"}}}
 
+           :build {:deps {io.github.clojure/tools.build
+                          {:git/tag "v0.10.10" :git/sha "fe6b140"}
+                          slipset/deps-deploy {:mvn/version "0.2.2"}}
+                   :ns-default build}
+
            :nrepl {:extra-paths ["dev"]
                    :extra-deps {nrepl/nrepl {:mvn/version "1.6.0"}}
                    :jvm-opts ["-Djdk.attach.allowAttachSelf"]
