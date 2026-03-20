@@ -1,8 +1,18 @@
 # clj-oa3-client
 
+[![Clojars Project](https://img.shields.io/clojars/v/energy.grid-coordination/clj-oa3-client.svg)](https://clojars.org/energy.grid-coordination/clj-oa3-client)
+
 Component-based OpenADR 3 client framework built on [clj-oa3](https://github.com/grid-coordination/clj-oa3).
 
 Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](https://github.com/stuartsierra/component) lifecycle management, a `NotificationChannel` protocol for MQTT and webhook notifications, and mDNS discovery for local VTNs.
+
+## Installation
+
+Add to your `deps.edn`:
+
+```clojure
+{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.1.0-SNAPSHOT"}}}
+```
 
 ## Features
 
@@ -48,8 +58,8 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 
 ## Prerequisites
 
-- [clj-oa3](../clj-oa3) must be checked out as a sibling directory (referenced via `:local/root`)
-- [clj-mdns](../clj-mdns) must be checked out as a sibling directory (referenced via `:local/root`)
+- [clj-oa3](https://github.com/grid-coordination/clj-oa3) — available from [Clojars](https://clojars.org/energy.grid-coordination/clj-oa3)
+- [clj-mdns](https://github.com/grid-coordination/clj-mdns) — available from [Clojars](https://clojars.org/energy.grid-coordination/clj-mdns)
 - The OpenADR 3 specification must be on the classpath (handled automatically via clj-oa3's `resources/` symlink)
 
 ## Quick Start
@@ -409,8 +419,8 @@ The `dev/user.clj` namespace provides a system atom with convenience functions:
 
 | Library | Purpose |
 |---------|---------|
-| [clj-oa3](../clj-oa3) | Pure OpenADR 3 client library (local dependency) |
-| [clj-mdns](../clj-mdns) | mDNS service discovery (local dependency) |
+| [clj-oa3](https://clojars.org/energy.grid-coordination/clj-oa3) | Pure OpenADR 3 client library |
+| [clj-mdns](https://clojars.org/energy.grid-coordination/clj-mdns) | mDNS service discovery |
 | [Component](https://github.com/stuartsierra/component) | Lifecycle management |
 | [machine_head](https://github.com/clojurewerkz/machine_head) | MQTT client (Paho wrapper) |
 | [hato](https://github.com/gnarroway/hato) | HTTP client (OAuth2 token fetch) |
