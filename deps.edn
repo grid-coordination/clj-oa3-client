@@ -34,13 +34,17 @@
 
            :build {:deps {io.github.clojure/tools.build
                           {:git/tag "v0.10.10" :git/sha "deedd62"}
-                          slipset/deps-deploy {:mvn/version "0.2.2"}}
+                          slipset/deps-deploy {:mvn/version "0.2.2"}
+                          io.github.dcj/codox-md {:mvn/version "0.1.0"}}
                    :ns-default build}
 
            :nrepl {:extra-paths ["dev"]
-                   :extra-deps {nrepl/nrepl {:mvn/version "1.6.0"}}
+                   :extra-deps {nrepl/nrepl {:mvn/version "1.6.0"}
+                                cider/cider-nrepl {:mvn/version "0.50.3"}
+                                io.github.dcj/clj-doc-browse {:mvn/version "0.1.0"}}
                    :jvm-opts ["-Djdk.attach.allowAttachSelf"]
-                   :main-opts ["-m" "nrepl.cmdline" "--port" "7890"]}
+                   :main-opts ["-m" "nrepl.cmdline" "--port" "7890"
+                               "--middleware" "[cider.nrepl/cider-middleware]"]}
 
            :test {:extra-paths ["test"]
                   :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
