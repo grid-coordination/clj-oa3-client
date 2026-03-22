@@ -24,7 +24,10 @@
          :jar-file (format "target/%s-%s.jar" (name lib) version)
          :description "OpenADR 3 client with Component lifecycle, mDNS discovery, and MQTT notifications"
          :url "https://grid-coordination.energy"
-         :licenses [{:name "MIT" :url "https://opensource.org/licenses/MIT"}]
+         :pom-data [[:licenses
+                     [:license
+                      [:name "MIT"]
+                      [:url "https://opensource.org/licenses/MIT"]]]]
          :scm {:tag (str "v" version)
                :url "https://github.com/grid-coordination/clj-oa3-client"}
          :basis (b/create-basis {})
