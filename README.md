@@ -411,7 +411,7 @@ Unit tests use [kaocha](https://github.com/lambdaisland/kaocha) and cover pure f
 
 ```bash
 clojure -M:nrepl
-# nREPL running on port 7890
+# nREPL port written to .nrepl-port
 ```
 
 ### Dev Helpers
