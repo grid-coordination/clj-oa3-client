@@ -1,5 +1,6 @@
 (ns user
   (:require [com.stuartsierra.component :as component]
+            [com.brunobonacci.mulog :as mu]
             [openadr3.client.base :as base]
             [openadr3.client.ven :as ven]
             [openadr3.client.bl :as bl]
@@ -8,6 +9,16 @@
             [openadr3.entities :as entities]))
 
 (def vtn-url "http://localhost:8080/openadr3/3.1.0")
+
+;; Start mulog console publisher for REPL use.
+;; Returns a stop fn — call (stop-logger) to shut it down.
+(defonce ^:private logger-stop-fn
+  (mu/start-publisher! {:type :console :pretty? true}))
+
+(defn stop-logger
+  "Stop the mulog console publisher."
+  []
+  (when logger-stop-fn (logger-stop-fn)))
 
 ;; ---------------------------------------------------------------------------
 ;; Client lifecycle helpers

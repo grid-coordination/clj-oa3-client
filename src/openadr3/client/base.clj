@@ -5,14 +5,13 @@
   and all API delegation functions. These functions work with any client
   that has a :martian key (VenClient, BlClient, or legacy OA3Client)."
   (:require [openadr3.api :as api]
-            [clojure.tools.logging :as log]
             [hato.client :as hc]))
 
 ;; ---------------------------------------------------------------------------
 ;; Version & User-Agent
 ;; ---------------------------------------------------------------------------
 
-(def lib-version "0.2.0")
+(def lib-version "0.3.0")
 
 (defn compose-user-agent
   "Compose a User-Agent string from a caller-supplied value.

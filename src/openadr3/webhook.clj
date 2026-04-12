@@ -22,7 +22,7 @@
     ;; Clean up
     (webhook/stop! recv)"
   (:require [clojure.data.json :as json]
-            [clojure.tools.logging :as log]
+            [com.brunobonacci.mulog :as mu]
             [openadr3.entities :as entities])
   (:import [com.sun.net.httpserver HttpServer HttpHandler HttpExchange]
            [java.net InetSocketAddress]
@@ -93,7 +93,7 @@
                          :time    (System/currentTimeMillis)
                          :raw     body}]
             (swap! messages conj msg)
-            (log/debug "Webhook notification received" {:path path})
+            (mu/log ::notification-received :path path)
             (when on-message
               (on-message path payload))
             (send-response exchange 200 "ok")))))))
@@ -122,8 +122,8 @@
      (.createContext server path handler)
      (.start server)
      (let [actual-port (.getPort (.getAddress server))]
-       (log/info "Webhook server started"
-                 {:callback-host callback-host :port actual-port :path path})
+       (mu/log ::started
+               :callback-host callback-host :port actual-port :path path)
        {:server        server
         :host          host
         :port          actual-port
@@ -187,5 +187,5 @@
   [recv]
   (when-let [^HttpServer server (:server recv)]
     (.stop server 1)
-    (log/info "Webhook server stopped" {:port (:port recv)}))
+    (mu/log ::stopped :port (:port recv)))
   recv)

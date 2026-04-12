@@ -22,7 +22,7 @@
   (:require [com.stuartsierra.component :as component]
             [mdns.core :as mdns]
             [openadr3.net :as net]
-            [clojure.tools.logging :as log])
+            [com.brunobonacci.mulog :as mu])
   (:import [java.net InetAddress]))
 
 (def default-service-type
@@ -45,7 +45,7 @@
 
   (start [this]
     (if jmdns
-      (do (log/info "MdnsDiscoverer already started")
+      (do (mu/log ::already-started)
           this)
       (let [addr    (or bind-address
                         (InetAddress/getByName (net/detect-lan-ip)))
@@ -57,25 +57,25 @@
                        (case type
                          :mdns.event/resolved
                          (do (swap! svcs conj service)
-                             (log/info "mDNS service discovered"
-                                       {:name (:mdns.service/name service)
-                                        :urls (:mdns.service/urls service)}))
+                             (mu/log ::service-discovered
+                                     :name (:mdns.service/name service)
+                                     :urls (:mdns.service/urls service)))
                          :mdns.event/removed
                          (do (swap! svcs (fn [v] (filterv #(not= (:mdns.service/qualified-name %)
                                                                  (:mdns.service/qualified-name service))
                                                           v)))
-                             (log/info "mDNS service removed"
-                                       {:name (:mdns.service/name service)}))
+                             (mu/log ::service-removed
+                                     :name (:mdns.service/name service)))
                          nil)))
-        (log/info "MdnsDiscoverer started"
-                  {:service-type (or service-type default-service-type)
-                   :bind-address (str addr)})
+        (mu/log ::started
+                :service-type (or service-type default-service-type)
+                :bind-address (str addr))
         (assoc this :jmdns instance :services svcs))))
 
   (stop [this]
     (when jmdns
       (mdns/close jmdns)
-      (log/info "MdnsDiscoverer stopped"))
+      (mu/log ::stopped))
     (assoc this :jmdns nil)))
 
 (defn mdns-discoverer

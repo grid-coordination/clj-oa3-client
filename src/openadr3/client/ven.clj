@@ -30,7 +30,7 @@
             [openadr3.client.base :as base]
             [openadr3.discovery :as discovery]
             [openadr3.entities :as entities]
-            [clojure.tools.logging :as log]))
+            [com.brunobonacci.mulog :as mu]))
 
 ;; ---------------------------------------------------------------------------
 ;; Component
@@ -56,26 +56,26 @@
 
   (start [this]
     (if martian
-      (do (log/info "VenClient already started" {:url url})
+      (do (mu/log ::already-started :url url)
           this)
       (let [hc             (api/build-shared-http-client {})
             resolved-url   (or url
                                (when discovery
                                  (let [urls (discovery/vtn-urls discovery)]
                                    (when (seq urls)
-                                     (log/info "VTN URL discovered via mDNS" {:url (first urls)})
+                                     (mu/log ::vtn-discovered :url (first urls))
                                      (first urls))))
                                (throw (ex-info "No VTN URL provided and no discovery available"
                                                {})))
             resolved-token (or token
-                               (do (log/info "Fetching OAuth2 token" {:client-id client-id})
+                               (do (mu/log ::fetching-oauth2-token :client-id client-id)
                                    (base/fetch-token resolved-url client-id client-secret hc)))
             m              (api/create-ven-client resolved-token resolved-url
                                                   {:spec-version (or spec-version api/default-spec-version)
                                                    :http-client  hc
                                                    :user-agent   (base/compose-user-agent user-agent)})]
-        (log/info "VenClient started" {:url resolved-url
-                                       :spec-version (or spec-version api/default-spec-version)})
+        (mu/log ::started :url resolved-url
+                :spec-version (or spec-version api/default-spec-version))
         (assoc this :url resolved-url :token resolved-token
                :http-client hc :martian m))))
 
@@ -86,9 +86,9 @@
         (try
           (channel/channel-stop ch)
           (catch Exception e
-            (log/warn "Error stopping channel" {:error (.getMessage e)}))))
+            (mu/log ::channel-stop-error :error (.getMessage e)))))
       (swap! state assoc :channels {})
-      (log/info "VenClient stopped" {:url url}))
+      (mu/log ::stopped :url url))
     (assoc this :http-client nil :martian nil)))
 
 ;; For base/martian accessor compatibility
@@ -156,8 +156,7 @@
   (let [m       (base/martian client)
         existing (api/find-ven-by-name m ven-name)
         vid     (if existing
-                  (do (log/info "VEN found, reusing registration"
-                                {:ven-name ven-name :ven-id (:id existing)})
+                  (do (mu/log ::ven-found :ven-name ven-name :ven-id (:id existing))
                       (:id existing))
                   (let [resp (api/create-ven m {:objectType "VEN_VEN_REQUEST"
                                                 :venName ven-name})
@@ -166,7 +165,7 @@
                       (throw (ex-info "VEN registration failed"
                                       {:ven-name ven-name :status (:status resp)
                                        :body (:body resp)})))
-                    (log/info "VEN registered" {:ven-name ven-name :ven-id id})
+                    (mu/log ::ven-registered :ven-name ven-name :ven-id id)
                     id))]
     (swap! (:state client) assoc :ven-id vid :ven-name ven-name)
     client))

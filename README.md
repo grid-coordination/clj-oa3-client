@@ -11,7 +11,7 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 Add to your `deps.edn`:
 
 ```clojure
-{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.2.0"}}}
+{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.3.0"}}}
 ```
 
 ## Features
@@ -301,7 +301,7 @@ Clients send a `User-Agent` header on every request. When `:user-agent` is provi
 final header is composed from all layers:
 
 ```
-clj-oa3-client/0.2.0 my-app/1.0 (contact@example.com) clj-oa3/0.2.0 (mac=...)
+clj-oa3-client/0.3.0 my-app/1.0 (contact@example.com) clj-oa3/0.2.1 (mac=...)
 ```
 
 When omitted, only the library identities are sent. Voluntary UA identification helps
@@ -429,6 +429,14 @@ The `dev/user.clj` namespace provides a system atom with convenience functions:
 (start! {:url "https://my-vtn.example.com/openadr3/3.1.0"})
 ```
 
+A mulog console publisher starts automatically in dev mode, so structured
+log events print to the REPL. To add a publisher in your own application:
+
+```clojure
+(require '[com.brunobonacci.mulog :as mu])
+(mu/start-publisher! {:type :console :pretty? true})
+```
+
 ## Dependencies
 
 | Library | Purpose |
@@ -438,6 +446,7 @@ The `dev/user.clj` namespace provides a system atom with convenience functions:
 | [Component](https://github.com/stuartsierra/component) | Lifecycle management |
 | [machine_head](https://github.com/clojurewerkz/machine_head) | MQTT client (Paho wrapper) |
 | [hato](https://github.com/gnarroway/hato) | HTTP client (OAuth2 token fetch) |
+| [mulog](https://github.com/BrunoBonacci/mulog) | Structured event logging |
 | [medley](https://github.com/weavejester/medley) | Utility functions |
 
 ## Related Repos

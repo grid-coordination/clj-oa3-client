@@ -24,7 +24,7 @@
   (:require [com.stuartsierra.component :as component]
             [openadr3.mqtt :as mqtt]
             [openadr3.webhook :as webhook]
-            [clojure.tools.logging :as log]))
+            [com.brunobonacci.mulog :as mu]))
 
 (defprotocol NotificationChannel
   "Protocol for notification channels (MQTT, webhook, etc.)."
@@ -50,14 +50,14 @@
   (channel-start [this]
     (let [conn (mqtt/connect! broker-url opts)]
       (reset! conn-atom conn)
-      (log/info "MqttChannel started" {:broker broker-url})
+      (mu/log ::mqtt-started :broker broker-url)
       this))
 
   (channel-stop [this]
     (when-let [conn @conn-atom]
       (mqtt/disconnect! conn)
       (reset! conn-atom nil)
-      (log/info "MqttChannel stopped" {:broker broker-url}))
+      (mu/log ::mqtt-stopped :broker broker-url))
     this)
 
   (subscribe-topics [this topics]
@@ -96,14 +96,14 @@
   (channel-start [this]
     (let [recv (webhook/start! opts)]
       (reset! receiver-atom recv)
-      (log/info "WebhookChannel started" {:port (:port recv)})
+      (mu/log ::webhook-started :port (:port recv))
       this))
 
   (channel-stop [this]
     (when-let [recv @receiver-atom]
       (webhook/stop! recv)
       (reset! receiver-atom nil)
-      (log/info "WebhookChannel stopped"))
+      (mu/log ::webhook-stopped))
     this)
 
   (subscribe-topics [this _topics]

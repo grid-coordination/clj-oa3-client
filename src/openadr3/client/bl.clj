@@ -18,7 +18,7 @@
   (:require [com.stuartsierra.component :as component]
             [openadr3.api :as api]
             [openadr3.client.base :as base]
-            [clojure.tools.logging :as log]))
+            [com.brunobonacci.mulog :as mu]))
 
 ;; ---------------------------------------------------------------------------
 ;; Component
@@ -42,23 +42,23 @@
 
   (start [this]
     (if martian
-      (do (log/info "BlClient already started" {:url url})
+      (do (mu/log ::already-started :url url)
           this)
       (let [hc             (api/build-shared-http-client {})
             resolved-token (or token
-                               (do (log/info "Fetching OAuth2 token" {:client-id client-id})
+                               (do (mu/log ::fetching-oauth2-token :client-id client-id)
                                    (base/fetch-token url client-id client-secret hc)))
             m              (api/create-bl-client resolved-token url
                                                  {:spec-version (or spec-version api/default-spec-version)
                                                   :http-client  hc
                                                   :user-agent   (base/compose-user-agent user-agent)})]
-        (log/info "BlClient started" {:url url
-                                      :spec-version (or spec-version api/default-spec-version)})
+        (mu/log ::started :url url
+                :spec-version (or spec-version api/default-spec-version))
         (assoc this :token resolved-token :http-client hc :martian m))))
 
   (stop [this]
     (when martian
-      (log/info "BlClient stopped" {:url url}))
+      (mu/log ::stopped :url url))
     (assoc this :http-client nil :martian nil)))
 
 (defmethod print-method BlClient [v ^java.io.Writer w]

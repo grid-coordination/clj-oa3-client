@@ -19,7 +19,7 @@
     (mqtt/disconnect! conn)"
   (:require [clojurewerkz.machine-head.client :as mh]
             [clojure.data.json :as json]
-            [clojure.tools.logging :as log]
+            [com.brunobonacci.mulog :as mu]
             [openadr3.entities :as entities])
   (:import [java.nio.charset StandardCharsets]))
 
@@ -77,8 +77,8 @@
                                 (assoc :opts (cond-> {}
                                                username (assoc :username username)
                                                password (assoc :password password)))))]
-     (log/info "MQTT connected" {:broker broker-url :client-id client-id
-                                 :username username})
+     (mu/log ::connected :broker broker-url :client-id client-id
+             :username username)
      {:client     client
       :broker-url broker-url
       :messages   messages
@@ -98,12 +98,12 @@
                            msg     {:topic   topic
                                     :payload parsed
                                     :time    (System/currentTimeMillis)}]
-                       (log/debug "MQTT message received" {:topic topic})
+                       (mu/log ::message-received :topic topic)
                        (swap! messages conj msg)
                        (when on-message
                          (on-message topic _metadata parsed))))]
     (mh/subscribe client topic-map handler)
-    (log/info "MQTT subscribed" {:topics topic-vec})
+    (mu/log ::subscribed :topics topic-vec)
     conn))
 
 (defn messages
@@ -161,5 +161,5 @@
   [conn]
   (when (connected? conn)
     (mh/disconnect-and-close (:client conn))
-    (log/info "MQTT disconnected" {:broker (:broker-url conn)}))
+    (mu/log ::disconnected :broker (:broker-url conn)))
   conn)
