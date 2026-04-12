@@ -12,7 +12,7 @@
 ;; Version & User-Agent
 ;; ---------------------------------------------------------------------------
 
-(def lib-version "0.1.0")
+(def lib-version "0.2.0")
 
 (defn compose-user-agent
   "Compose a User-Agent string from a caller-supplied value.
