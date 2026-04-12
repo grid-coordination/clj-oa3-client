@@ -3,6 +3,19 @@
   (:require [clojure.test :refer [deftest is testing]]
             [openadr3.client.base :as base]))
 
+(deftest compose-user-agent-test
+  (testing "with no caller user-agent, returns just clj-oa3-client identity"
+    (is (= (str "clj-oa3-client/" base/lib-version)
+           (base/compose-user-agent nil))))
+
+  (testing "with caller user-agent, prepends clj-oa3-client identity"
+    (is (= (str "clj-oa3-client/" base/lib-version " my-app/1.0")
+           (base/compose-user-agent "my-app/1.0"))))
+
+  (testing "with caller user-agent including contact info"
+    (is (= (str "clj-oa3-client/" base/lib-version " my-app/2.0 (contact@example.com)")
+           (base/compose-user-agent "my-app/2.0 (contact@example.com)")))))
+
 (deftest extract-topics-test
   (testing "extracts topic values from successful response"
     (is (= ["programs/create" "events/update"]

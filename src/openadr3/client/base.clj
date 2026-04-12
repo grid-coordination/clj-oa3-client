@@ -9,6 +9,23 @@
             [hato.client :as hc]))
 
 ;; ---------------------------------------------------------------------------
+;; Version & User-Agent
+;; ---------------------------------------------------------------------------
+
+(def lib-version "0.1.0")
+
+(defn compose-user-agent
+  "Compose a User-Agent string from a caller-supplied value.
+  When caller-ua is provided, prepends the clj-oa3-client identity.
+  When nil, returns just the clj-oa3-client identity (clj-oa3 will
+  further prepend its own identity)."
+  [caller-ua]
+  (let [self (str "clj-oa3-client/" lib-version)]
+    (if caller-ua
+      (str self " " caller-ua)
+      self)))
+
+;; ---------------------------------------------------------------------------
 ;; OAuth2 token fetch (bypasses Martian — used before client creation)
 ;; ---------------------------------------------------------------------------
 

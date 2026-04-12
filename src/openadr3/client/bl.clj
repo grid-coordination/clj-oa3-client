@@ -31,6 +31,7 @@
                      client-id       ; OAuth2 client ID (optional)
                      client-secret   ; OAuth2 client secret (optional)
                      spec-version    ; e.g. "3.1.0"
+                     user-agent      ; custom User-Agent suffix (optional)
                      ;; runtime (set on start)
                      http-client     ; shared Java HttpClient
                      martian         ; the Martian client instance
@@ -49,7 +50,8 @@
                                    (base/fetch-token url client-id client-secret hc)))
             m              (api/create-bl-client resolved-token url
                                                  {:spec-version (or spec-version api/default-spec-version)
-                                                  :http-client  hc})]
+                                                  :http-client  hc
+                                                  :user-agent   (base/compose-user-agent user-agent)})]
         (log/info "BlClient started" {:url url
                                       :spec-version (or spec-version api/default-spec-version)})
         (assoc this :token resolved-token :http-client hc :martian m))))
@@ -71,9 +73,10 @@
     :client-id     — OAuth2 client ID (used with :client-secret)
     :client-secret — OAuth2 client secret (used with :client-id)
     :spec-version  — OpenAPI spec version, default \"3.1.0\"
+    :user-agent    — custom User-Agent suffix for self-identification (optional)
 
   Call component/start to connect."
-  [{:keys [url token client-id client-secret spec-version]}]
+  [{:keys [url token client-id client-secret spec-version user-agent]}]
   {:pre [(string? url)
          (or (string? token)
              (and (string? client-id) (string? client-secret)))]}
@@ -83,4 +86,5 @@
                   :client-id      client-id
                   :client-secret  client-secret
                   :spec-version   (or spec-version api/default-spec-version)
+                  :user-agent     user-agent
                   :state          (atom {})}))

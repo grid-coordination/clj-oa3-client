@@ -74,8 +74,9 @@ Add to your `deps.edn`:
 ;; Create and start a VEN client
 (def my-ven
   (component/start
-    (ven/ven-client {:url   "http://localhost:8080/openadr3/3.1.0"
-                     :token "my-ven-token"})))
+    (ven/ven-client {:url        "http://localhost:8080/openadr3/3.1.0"
+                     :token      "my-ven-token"
+                     :user-agent "my-app/1.0 (contact@example.com)"})))
 
 ;; Register with the VTN
 (ven/register! my-ven "my-ven-name")
@@ -288,10 +289,23 @@ Use `component/start-system` to manage multiple clients as a system:
 | `:client-id` | string | one of | — | OAuth2 client ID (used with `:client-secret`) |
 | `:client-secret` | string | one of | — | OAuth2 client secret (used with `:client-id`) |
 | `:spec-version` | string | no | `"3.1.0"` | OpenAPI spec version |
+| `:user-agent` | string | no | — | Custom User-Agent suffix for self-identification |
 
 Either `:token` or both `:client-id` and `:client-secret` must be provided. When using client credentials, the token is fetched during `component/start` via the VTN's `/auth/server` endpoint.
 
 Available spec versions: `"3.0.0"`, `"3.0.1"`, `"3.1.0"`, `"3.1.1"`
+
+### User-Agent
+
+Clients send a `User-Agent` header on every request. When `:user-agent` is provided, the
+final header is composed from all layers:
+
+```
+clj-oa3-client/0.1.0 my-app/1.0 (contact@example.com) clj-oa3/0.2.0 (mac=...)
+```
+
+When omitted, only the library identities are sent. Voluntary UA identification helps
+server operators understand who is using their service from access logs.
 
 ## API Reference
 
