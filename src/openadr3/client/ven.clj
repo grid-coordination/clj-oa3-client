@@ -291,13 +291,29 @@
   (let [notifiers (discover-notifiers client)]
     (boolean (seq (get-in notifiers [:MQTT :URIS])))))
 
+(defn- normalize-notifier-uri
+  "Normalize a broker URI from the VTN to standard MQTT schemes.
+  VTNs may return tcp:// or ssl:// (Paho conventions); we present
+  mqtt:// and mqtts:// to callers. Default ports added when omitted."
+  [uri]
+  (let [u    (java.net.URI. uri)
+        host (.getHost u)
+        port (.getPort u)]
+    (case (.getScheme u)
+      "tcp"   (str "mqtt://" host ":" (if (pos? port) port 1883))
+      "mqtt"  (str "mqtt://" host ":" (if (pos? port) port 1883))
+      "ssl"   (str "mqtts://" host ":" (if (pos? port) port 8883))
+      "mqtts" (str "mqtts://" host ":" (if (pos? port) port 8883))
+      uri)))
+
 (defn mqtt-broker-urls
   "Discover MQTT broker URLs from the VTN's notifiers endpoint.
-  Returns a vector of URI strings, or nil."
+  Returns a vector of normalized URI strings using standard mqtt:// and
+  mqtts:// schemes, or nil. Accepts any scheme the VTN may return."
   [client]
   (let [notifiers (discover-notifiers client)]
     (when-let [uris (seq (get-in notifiers [:MQTT :URIS]))]
-      (vec uris))))
+      (mapv normalize-notifier-uri uris))))
 
 ;; ---------------------------------------------------------------------------
 ;; Event polling
