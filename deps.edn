@@ -1,7 +1,7 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/clojure            {:mvn/version "1.12.3"}
         ;; OpenADR3 client library
-        energy.grid-coordination/clj-oa3 {:mvn/version "0.2.1"}
+        energy.grid-coordination/clj-oa3 {:mvn/version "0.2.2"}
 
         ;; Component lifecycle
         com.stuartsierra/component     {:mvn/version "1.1.0"}

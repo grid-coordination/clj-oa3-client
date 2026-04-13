@@ -11,7 +11,7 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 Add to your `deps.edn`:
 
 ```clojure
-{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.3.0"}}}
+{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.3.1"}}}
 ```
 
 ## Features
@@ -301,7 +301,7 @@ Clients send a `User-Agent` header on every request. When `:user-agent` is provi
 final header is composed from all layers:
 
 ```
-clj-oa3-client/0.3.0 my-app/1.0 (contact@example.com) clj-oa3/0.2.1 (mac=...)
+clj-oa3-client/0.3.1 my-app/1.0 (contact@example.com) clj-oa3/0.2.2 (mac=...)
 ```
 
 When omitted, only the library identities are sent. Voluntary UA identification helps
