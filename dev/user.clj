@@ -5,8 +5,7 @@
             [openadr3.client.ven :as ven]
             [openadr3.client.bl :as bl]
             [openadr3.channel :as ch]
-            [openadr3.discovery :as disc]
-            [openadr3.entities :as entities]))
+            [openadr3.discovery :as disc]))
 
 (def vtn-url "http://localhost:8080/openadr3/3.1.0")
 
