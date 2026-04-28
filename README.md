@@ -1,6 +1,8 @@
 # clj-oa3-client
 
 [![Clojars Project](https://img.shields.io/clojars/v/energy.grid-coordination/clj-oa3-client.svg)](https://clojars.org/energy.grid-coordination/clj-oa3-client)
+[![md-docs](https://img.shields.io/badge/md--docs-included-green)](https://github.com/dcj/codox-md)
+[![build-provenance](https://img.shields.io/badge/build--provenance-included-blue)](https://github.com/dcj/build-provenance)
 
 Component-based OpenADR 3 client framework built on [clj-oa3](https://github.com/grid-coordination/clj-oa3).
 
@@ -11,7 +13,7 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 Add to your `deps.edn`:
 
 ```clojure
-{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.3.2"}}}
+{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.3.4"}}}
 ```
 
 ## Features
@@ -301,7 +303,7 @@ Clients send a `User-Agent` header on every request. When `:user-agent` is provi
 final header is composed from all layers:
 
 ```
-clj-oa3-client/0.3.2 my-app/1.0 (contact@example.com) clj-oa3/0.2.2 (mac=...)
+clj-oa3-client/0.3.4 my-app/1.0 (contact@example.com) clj-oa3/0.2.4 (mac=...)
 ```
 
 When omitted, only the library identities are sent. Voluntary UA identification helps
