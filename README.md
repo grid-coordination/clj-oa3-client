@@ -13,7 +13,7 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 Add to your `deps.edn`:
 
 ```clojure
-{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.3.4"}}}
+{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.3.5"}}}
 ```
 
 ## Features
@@ -303,7 +303,7 @@ Clients send a `User-Agent` header on every request. When `:user-agent` is provi
 final header is composed from all layers:
 
 ```
-clj-oa3-client/0.3.4 my-app/1.0 (contact@example.com) clj-oa3/0.2.4 (mac=...)
+clj-oa3-client/0.3.5 my-app/1.0 (contact@example.com) clj-oa3/0.3.0 (mac=...)
 ```
 
 When omitted, only the library identities are sent. Voluntary UA identification helps
@@ -368,6 +368,30 @@ All `openadr3.api` functions are available through `openadr3.client.base`. The c
 (base/endpoint-scopes c :search-all-events)  ;=> #{"read_all"}
 (base/authorized? c :search-all-events)      ;=> truthy if allowed
 ```
+
+## Time and timezones
+
+clj-oa3-client has no datetime handling of its own — body parsing and entity coercion is delegated entirely to [clj-oa3](https://github.com/grid-coordination/clj-oa3). Every datetime field surfaced through this library — whether from a synchronous API call, an MQTT notification, or a webhook callback — is a `java.time.ZonedDateTime` zoned to the offset present on the wire.
+
+For VEN and BL authors, the practical implication is:
+
+```clojure
+;; Synchronous API call
+(-> (first (base/events ven)) :openadr.event/interval-period :tick/beginning)
+;; => #time/zoned-date-time "2026-05-03T00:00-07:00"
+
+;; Webhook notification (parsed from POST body)
+(-> (ch/channel-messages wh-ch) first :payload :openadr.notification/object
+    :openadr.event/interval-period :tick/beginning)
+;; => #time/zoned-date-time "2026-05-03T00:00-07:00"
+
+;; MQTT notification (parsed from broker payload)
+(-> (ch/channel-messages mqtt-ch) first :payload :openadr.notification/object
+    :openadr.event/interval-period :tick/beginning)
+;; => #time/zoned-date-time "2026-05-03T00:00-07:00"
+```
+
+In all three channels, `:openadr/created`, `:openadr/modified`, `:openadr.interval-period/start`, `:tick/beginning`, and `:tick/end` are `ZonedDateTime` instances anchored to the numeric offset emitted by the VTN. Callers that want a `java.time.Instant` can call `.toInstant` on the value. See the [clj-oa3 README](https://github.com/grid-coordination/clj-oa3#time-and-timezones) for the full discussion of why `ZonedDateTime` over `Instant`, RFC 3339 wire grammar, and the VTN-RI space-separated workaround.
 
 ## Namespace Guide
 
@@ -458,6 +482,16 @@ log events print to the REPL. To add a publisher in your own application:
 | [clj-oa3](https://github.com/grid-coordination/clj-oa3) | Pure client library (dependency) |
 | [clj-mdns](https://github.com/grid-coordination/clj-mdns) | mDNS discovery library (dependency) |
 | [clj-oa3-test](https://github.com/grid-coordination/clj-oa3-test) | OpenADR 3 integration tests |
+
+## Contributing
+
+Issues, Discussions, and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow (and the dev commands: tests, lint, nREPL). In short:
+
+- **Questions, component-design discussion, wiring patterns** → [Discussions](https://github.com/grid-coordination/clj-oa3-client/discussions)
+- **Confirmed bugs in lifecycle, channels, mDNS, or VEN helpers; doc errors** → [Issues](https://github.com/grid-coordination/clj-oa3-client/issues)
+- **Patches** → pull requests; please open a Discussion or Issue first for non-trivial changes (new channel transports, new component types, new lifecycle behavior, new dependencies)
+
+Wire-format, schema, or datetime-coercion concerns belong upstream in [clj-oa3](https://github.com/grid-coordination/clj-oa3) — not here.
 
 ## License
 
