@@ -28,7 +28,6 @@
             [openadr3.api :as api]
             [openadr3.channel :as channel]
             [openadr3.client.base :as base]
-            [openadr3.discovery :as discovery]
             [openadr3.entities :as entities]
             [com.brunobonacci.mulog :as mu]))
 
@@ -44,6 +43,9 @@
                       client-secret   ; OAuth2 client secret (optional)
                       spec-version    ; e.g. "3.1.0"
                       user-agent      ; custom User-Agent suffix (optional)
+                      connect-timeout-ms ; HttpClient connect timeout (optional)
+                      request-timeout-ms ; per-request timeout (optional)
+                      query-param-extensions ; {route-name [param-key ...]} (optional)
                       ;; optional injected component
                       discovery       ; MdnsDiscoverer (injected via component/using)
                       ;; runtime (set on start)
@@ -58,10 +60,12 @@
     (if martian
       (do (mu/log ::already-started :url url)
           this)
-      (let [hc             (api/build-shared-http-client {})
+      (let [hc             (base/build-http-client connect-timeout-ms)
             resolved-url   (or url
                                (when discovery
-                                 (let [urls (discovery/vtn-urls discovery)]
+                                 ;; Resolved lazily so clj-mdns stays optional: an
+                                 ;; injected discoverer means openadr3.discovery is loaded.
+                                 (let [urls ((requiring-resolve 'openadr3.discovery/vtn-urls) discovery)]
                                    (when (seq urls)
                                      (mu/log ::vtn-discovered :url (first urls))
                                      (first urls))))
@@ -70,10 +74,12 @@
             resolved-token (or token
                                (do (mu/log ::fetching-oauth2-token :client-id client-id)
                                    (base/fetch-token resolved-url client-id client-secret hc)))
-            m              (api/create-ven-client resolved-token resolved-url
-                                                  {:spec-version (or spec-version api/default-spec-version)
-                                                   :http-client  hc
-                                                   :user-agent   (base/compose-user-agent user-agent)})]
+            m              (-> (api/create-ven-client resolved-token resolved-url
+                                                      {:spec-version (or spec-version api/default-spec-version)
+                                                       :http-client  hc
+                                                       :user-agent   (base/compose-user-agent user-agent)
+                                                       :query-param-extensions query-param-extensions})
+                               (base/with-request-timeout request-timeout-ms))]
         (mu/log ::started :url resolved-url
                 :spec-version (or spec-version api/default-spec-version))
         (assoc this :url resolved-url :token resolved-token
@@ -105,6 +111,13 @@
     :client-secret — OAuth2 client secret (used with :client-id)
     :spec-version  — OpenAPI spec version, default \"3.1.0\"
     :user-agent    — custom User-Agent suffix for self-identification (optional)
+    :connect-timeout-ms — HttpClient connect timeout, default 5000
+    :request-timeout-ms — per-request timeout; none by default. A request
+                          that exceeds it throws an ExceptionInfo whose
+                          cause is java.net.http.HttpTimeoutException.
+    :query-param-extensions — {route-name [param-key ...]}: query params to
+                          send although the spec does not declare them, e.g.
+                          {:search-all-events [:dateStart :dateEnd]}
 
   The URL can be omitted when an MdnsDiscoverer is injected via
   component/using — the VTN URL will be resolved from discovered services
@@ -114,7 +127,8 @@
     clj-oa3-client/<version> <your-user-agent> clj-oa3/<version> (<node>)
 
   Call component/start to connect."
-  [{:keys [url token client-id client-secret spec-version user-agent]}]
+  [{:keys [url token client-id client-secret spec-version user-agent
+           connect-timeout-ms request-timeout-ms query-param-extensions]}]
   {:pre [(or (string? url) (nil? url))
          (or (string? token)
              (and (string? client-id) (string? client-secret)))]}
@@ -125,6 +139,9 @@
                    :client-secret  client-secret
                    :spec-version   (or spec-version api/default-spec-version)
                    :user-agent     user-agent
+                   :connect-timeout-ms connect-timeout-ms
+                   :request-timeout-ms request-timeout-ms
+                   :query-param-extensions query-param-extensions
                    :state          (atom {:channels {} :program-cache {}})}))
 
 ;; ---------------------------------------------------------------------------
@@ -270,7 +287,7 @@
   [client program-name]
   (let [cache (:program-cache @(:state client))]
     (or (get cache program-name)
-        (when-let [prog (api/find-program-by-name (base/martian client) program-name)]
+        (when-let [prog (base/find-program-by-name client program-name)]
           (let [id (:id prog)]
             (swap! (:state client) assoc-in [:program-cache program-name] id)
             id)))))

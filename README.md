@@ -13,7 +13,7 @@ Provides `VenClient` and `BlClient` components with [Stuart Sierra's Component](
 Add to your `deps.edn`:
 
 ```clojure
-{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.3.5"}}}
+{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.4.0"}}}
 ```
 
 ## Features
@@ -61,7 +61,7 @@ Add to your `deps.edn`:
 ## Prerequisites
 
 - [clj-oa3](https://github.com/grid-coordination/clj-oa3) — available from [Clojars](https://clojars.org/energy.grid-coordination/clj-oa3)
-- [clj-mdns](https://github.com/grid-coordination/clj-mdns) — available from [Clojars](https://clojars.org/energy.grid-coordination/clj-mdns)
+- [clj-mdns](https://github.com/grid-coordination/clj-mdns), only to use `openadr3.discovery`: add it to your own `deps.edn` (available from [Clojars](https://clojars.org/energy.grid-coordination/clj-mdns))
 - The OpenADR 3 specification must be on the classpath (handled automatically via clj-oa3's `resources/` symlink)
 
 ## Quick Start
@@ -224,6 +224,13 @@ These auto-use the registered VEN ID when called with one argument:
 The `MdnsDiscoverer` component discovers VTNs on the local network via mDNS
 (service type `_openadr._tcp`). It implements `component/Lifecycle`.
 
+`openadr3.discovery` needs clj-mdns, which this library does not pull in:
+
+```clojure
+{:deps {energy.grid-coordination/clj-oa3-client {:mvn/version "0.4.0"}
+        energy.grid-coordination/clj-mdns       {:mvn/version "0.1.0-SNAPSHOT"}}}
+```
+
 ### Standalone Discovery
 
 ```clojure
@@ -292,6 +299,9 @@ Use `component/start-system` to manage multiple clients as a system:
 | `:client-secret` | string | one of | — | OAuth2 client secret (used with `:client-id`) |
 | `:spec-version` | string | no | `"3.1.0"` | OpenAPI spec version |
 | `:user-agent` | string | no | — | Custom User-Agent suffix for self-identification |
+| `:connect-timeout-ms` | int | no | `5000` | HttpClient connect timeout |
+| `:request-timeout-ms` | int | no | none | Per-request timeout; a request that exceeds it throws an `ExceptionInfo` whose cause is `java.net.http.HttpTimeoutException` |
+| `:query-param-extensions` | map | no | — | Query params to send although the spec does not declare them, keyed by route, e.g. `{:search-all-events [:dateStart :dateEnd] :search-all-programs [:programName]}`. Those keys then pass through `base/search-events` and `base/search-programs`. |
 
 Either `:token` or both `:client-id` and `:client-secret` must be provided. When using client credentials, the token is fetched during `component/start` via the VTN's `/auth/server` endpoint.
 
@@ -303,7 +313,7 @@ Clients send a `User-Agent` header on every request. When `:user-agent` is provi
 final header is composed from all layers:
 
 ```
-clj-oa3-client/0.3.5 my-app/1.0 (contact@example.com) clj-oa3/0.3.0 (mac=...)
+clj-oa3-client/0.4.0 my-app/1.0 (contact@example.com) clj-oa3/0.5.0 (mac=...)
 ```
 
 When omitted, only the library identities are sent. Voluntary UA identification helps
@@ -468,7 +478,7 @@ log events print to the REPL. To add a publisher in your own application:
 | Library | Purpose |
 |---------|---------|
 | [clj-oa3](https://clojars.org/energy.grid-coordination/clj-oa3) | Pure OpenADR 3 client library |
-| [clj-mdns](https://clojars.org/energy.grid-coordination/clj-mdns) | mDNS service discovery |
+| [clj-mdns](https://clojars.org/energy.grid-coordination/clj-mdns) | mDNS service discovery (optional; add it to use `openadr3.discovery`) |
 | [Component](https://github.com/stuartsierra/component) | Lifecycle management |
 | [machine_head](https://github.com/clojurewerkz/machine_head) | MQTT client (Paho wrapper) |
 | [hato](https://github.com/gnarroway/hato) | HTTP client (OAuth2 token fetch) |
@@ -480,7 +490,7 @@ log events print to the REPL. To add a publisher in your own application:
 | Repo | Description |
 |------|-------------|
 | [clj-oa3](https://github.com/grid-coordination/clj-oa3) | Pure client library (dependency) |
-| [clj-mdns](https://github.com/grid-coordination/clj-mdns) | mDNS discovery library (dependency) |
+| [clj-mdns](https://github.com/grid-coordination/clj-mdns) | mDNS discovery library (optional dependency) |
 | [clj-oa3-test](https://github.com/grid-coordination/clj-oa3-test) | OpenADR 3 integration tests |
 
 ## Contributing

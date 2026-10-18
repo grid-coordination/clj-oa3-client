@@ -1,13 +1,10 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/clojure            {:mvn/version "1.12.3"}
         ;; OpenADR3 client library
-        energy.grid-coordination/clj-oa3 {:mvn/version "0.3.0"}
+        energy.grid-coordination/clj-oa3 {:mvn/version "0.5.0"}
 
         ;; Component lifecycle
         com.stuartsierra/component     {:mvn/version "1.1.0"}
-
-        ;; mDNS discovery
-        energy.grid-coordination/clj-mdns {:mvn/version "0.1.0-SNAPSHOT"}
 
         ;; MQTT notifications
         clojurewerkz/machine_head     {:mvn/version "1.0.0"}
@@ -19,13 +16,15 @@
         medley/medley                  {:mvn/version "1.4.0"}
 
         ;; Structured logging
-        com.brunobonacci/mulog        {:mvn/version "0.10.1"}
+        com.brunobonacci/mulog        {:mvn/version "0.10.1"}}
 
-        ;; Silence SLF4J warnings from transitive deps (JmDNS, Paho)
-        org.slf4j/slf4j-nop           {:mvn/version "2.0.16"}}
-
+ ;; clj-mdns is optional at runtime: consumers that use openadr3.discovery add
+ ;; it themselves. slf4j-nop silences SLF4J warnings from JmDNS and Paho here
+ ;; only, so consumers keep their own SLF4J binding.
  :aliases {:dev {:extra-paths ["dev"]
-                 :extra-deps {babashka/process {:mvn/version "0.6.23"}
+                 :extra-deps {energy.grid-coordination/clj-mdns {:mvn/version "0.1.0-SNAPSHOT"}
+                              org.slf4j/slf4j-nop {:mvn/version "2.0.16"}
+                              babashka/process {:mvn/version "0.6.23"}
                               io.github.paintparty/fireworks {:mvn/version "0.12.6"}}}
 
            :build {:deps {io.github.clojure/tools.build
@@ -36,7 +35,9 @@
                    :ns-default build}
 
            :nrepl {:extra-paths ["dev"]
-                   :extra-deps {nrepl/nrepl {:mvn/version "1.6.0"}
+                   :extra-deps {energy.grid-coordination/clj-mdns {:mvn/version "0.1.0-SNAPSHOT"}
+                                org.slf4j/slf4j-nop {:mvn/version "2.0.16"}
+                                nrepl/nrepl {:mvn/version "1.6.0"}
                                 cider/cider-nrepl {:mvn/version "0.50.3"}
                                 com.dcj/clj-doc-browse {:mvn/version "0.1.0"}}
                    :jvm-opts ["-Djdk.attach.allowAttachSelf"]
@@ -44,5 +45,7 @@
                                "--middleware" "[cider.nrepl/cider-middleware]"]}
 
            :test {:extra-paths ["test"]
-                  :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+                  :extra-deps {energy.grid-coordination/clj-mdns {:mvn/version "0.1.0-SNAPSHOT"}
+                               org.slf4j/slf4j-nop {:mvn/version "2.0.16"}
+                               lambdaisland/kaocha {:mvn/version "1.91.1392"}}
                   :main-opts ["-m" "kaocha.runner" "--config-file" "tests.edn"]}}}

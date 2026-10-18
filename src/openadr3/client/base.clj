@@ -4,14 +4,21 @@
   Contains spec resolution, OAuth2 token fetching, the Martian accessor,
   and all API delegation functions. These functions work with any client
   that has a :martian key (VenClient, BlClient, or legacy OA3Client)."
-  (:require [openadr3.api :as api]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [openadr3.api :as api]
+            [openadr3.entities :as entities]
             [hato.client :as hc]))
 
 ;; ---------------------------------------------------------------------------
 ;; Version & User-Agent
 ;; ---------------------------------------------------------------------------
 
-(def lib-version "0.3.4")
+(def lib-version
+  "This library's version, read from the VERSION resource that build.clj also reads."
+  (some-> (io/resource "META-INF/energy.grid-coordination/clj-oa3-client/VERSION")
+          slurp
+          str/trim))
 
 (defn compose-user-agent
   "Compose a User-Agent string from a caller-supplied value.
@@ -23,6 +30,30 @@
     (if caller-ua
       (str self " " caller-ua)
       self)))
+
+;; ---------------------------------------------------------------------------
+;; HTTP client & timeouts
+;; ---------------------------------------------------------------------------
+
+(defn build-http-client
+  "Build the shared HttpClient a client component uses for every request.
+  connect-timeout-ms defaults to clj-oa3's default (5000) when nil."
+  [connect-timeout-ms]
+  (api/build-shared-http-client
+   (cond-> {} connect-timeout-ms (assoc :connect-timeout-ms connect-timeout-ms))))
+
+(defn with-request-timeout
+  "Return Martian client m with a per-request timeout of timeout-ms
+  milliseconds, or m unchanged when timeout-ms is nil. A request that
+  exceeds it throws an ExceptionInfo whose cause is
+  java.net.http.HttpTimeoutException."
+  [m timeout-ms]
+  (cond-> m
+    timeout-ms (update :interceptors
+                       #(into [{:name  ::request-timeout
+                                :enter (fn [ctx]
+                                         (assoc-in ctx [:request :timeout] timeout-ms))}]
+                              %))))
 
 ;; ---------------------------------------------------------------------------
 ;; OAuth2 token fetch (bypasses Martian — used before client creation)
@@ -85,7 +116,7 @@
 (defn create-program   [c body]   (api/create-program (martian c) body))
 (defn update-program   [c id body] (api/update-program (martian c) id body))
 (defn delete-program   [c id]     (api/delete-program (martian c) id))
-(defn find-program-by-name [c name] (api/find-program-by-name (martian c) name))
+
 
 ;; Events
 (defn get-events       [c]        (api/get-events (martian c)))
@@ -147,6 +178,38 @@
 (defn get-mqtt-topics-resources [c] (api/get-mqtt-topics-resources (martian c)))
 
 ;; ---------------------------------------------------------------------------
+;; Paged program access
+;; ---------------------------------------------------------------------------
+
+(def ^:private page-size 50)
+
+(defn- all-programs
+  "Fetch every program page by page with skip/limit, merging extra-params
+  into each query. Returns raw program maps. Throws on a non-2xx response."
+  [c extra-params]
+  (loop [skip 0 acc []]
+    (let [resp (api/search-programs (martian c)
+                                    (assoc extra-params :skip skip :limit page-size))]
+      (when-not (api/success? resp)
+        (throw (ex-info "Program search failed"
+                        {:status (:status resp) :body (:body resp)})))
+      (let [page (:body resp)
+            acc  (into acc page)]
+        (if (= page-size (count page))
+          (recur (+ skip page-size) acc)
+          acc)))))
+
+(defn find-program-by-name
+  "Find a program by programName. Returns the first exact match as a raw
+  map, or nil. Pages through all programs, and also sends programName as a
+  query param, which narrows the search when the client was created with
+  :query-param-extensions {:search-all-programs [:programName]}.
+  Throws on a non-2xx response."
+  [c name]
+  (some #(when (= name (:programName %)) %)
+        (all-programs c {:programName name})))
+
+;; ---------------------------------------------------------------------------
 ;; Response helpers
 ;; ---------------------------------------------------------------------------
 
@@ -157,7 +220,11 @@
 ;; Coerced entity access (returns namespaced entities with :openadr/raw metadata)
 ;; ---------------------------------------------------------------------------
 
-(defn programs         [c]    (api/programs (martian c)))
+(defn programs
+  "Fetch and coerce all programs, page by page. Returns a vector of Program
+  entities. Throws on a non-2xx response."
+  [c]
+  (mapv entities/->program (all-programs c {})))
 (defn program          [c id] (api/program (martian c) id))
 (defn events           [c]    (api/events (martian c)))
 (defn event            [c id] (api/event (martian c) id))

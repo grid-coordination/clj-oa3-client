@@ -32,6 +32,9 @@
                      client-secret   ; OAuth2 client secret (optional)
                      spec-version    ; e.g. "3.1.0"
                      user-agent      ; custom User-Agent suffix (optional)
+                     connect-timeout-ms ; HttpClient connect timeout (optional)
+                     request-timeout-ms ; per-request timeout (optional)
+                     query-param-extensions ; {route-name [param-key ...]} (optional)
                      ;; runtime (set on start)
                      http-client     ; shared Java HttpClient
                      martian         ; the Martian client instance
@@ -44,14 +47,16 @@
     (if martian
       (do (mu/log ::already-started :url url)
           this)
-      (let [hc             (api/build-shared-http-client {})
+      (let [hc             (base/build-http-client connect-timeout-ms)
             resolved-token (or token
                                (do (mu/log ::fetching-oauth2-token :client-id client-id)
                                    (base/fetch-token url client-id client-secret hc)))
-            m              (api/create-bl-client resolved-token url
-                                                 {:spec-version (or spec-version api/default-spec-version)
-                                                  :http-client  hc
-                                                  :user-agent   (base/compose-user-agent user-agent)})]
+            m              (-> (api/create-bl-client resolved-token url
+                                                     {:spec-version (or spec-version api/default-spec-version)
+                                                      :http-client  hc
+                                                      :user-agent   (base/compose-user-agent user-agent)
+                                                      :query-param-extensions query-param-extensions})
+                               (base/with-request-timeout request-timeout-ms))]
         (mu/log ::started :url url
                 :spec-version (or spec-version api/default-spec-version))
         (assoc this :token resolved-token :http-client hc :martian m))))
@@ -74,9 +79,17 @@
     :client-secret — OAuth2 client secret (used with :client-id)
     :spec-version  — OpenAPI spec version, default \"3.1.0\"
     :user-agent    — custom User-Agent suffix for self-identification (optional)
+    :connect-timeout-ms — HttpClient connect timeout, default 5000
+    :request-timeout-ms — per-request timeout; none by default. A request
+                          that exceeds it throws an ExceptionInfo whose
+                          cause is java.net.http.HttpTimeoutException.
+    :query-param-extensions — {route-name [param-key ...]}: query params to
+                          send although the spec does not declare them, e.g.
+                          {:search-all-events [:dateStart :dateEnd]}
 
   Call component/start to connect."
-  [{:keys [url token client-id client-secret spec-version user-agent]}]
+  [{:keys [url token client-id client-secret spec-version user-agent
+           connect-timeout-ms request-timeout-ms query-param-extensions]}]
   {:pre [(string? url)
          (or (string? token)
              (and (string? client-id) (string? client-secret)))]}
@@ -87,4 +100,7 @@
                   :client-secret  client-secret
                   :spec-version   (or spec-version api/default-spec-version)
                   :user-agent     user-agent
+                  :connect-timeout-ms connect-timeout-ms
+                  :request-timeout-ms request-timeout-ms
+                  :query-param-extensions query-param-extensions
                   :state          (atom {})}))
